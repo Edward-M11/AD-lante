@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AD-lante 🍅 Coach Pomodoro</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0e0e10;
+      --surface: #18181c;
+      --surface2: #222228;
+      --border: #2e2e38;
+      --tomato: #ff4d2e;
+      --tomato-glow: rgba(255, 77, 46, 0.18);
+      --gold: #f5c542;
+      --green: #3ecf7a;
+      --blue: #5b8dee;
+      --text: #f0eff4;
+      --muted: #7a7a8c;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.35;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.4rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(14, 14, 16, 0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-family: var(--font-head);
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-tomato {
+      font-size: 1.6rem;
+      animation: bob 3s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-4px);
+      }
+    }
+
+    .logo span {
+      color: var(--tomato);
+    }
+
+    .badge-today {
+      font-size: 0.72rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.3rem 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .container {
+      max-width: none;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 2rem;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem;
+    }
+
+    .panel-title {
+      font-family: var(--font-head);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.4rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      margin-top: 1rem;
+    }
+
+    label:first-of-type {
+      margin-top: 0;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      padding: 0.6rem 0.85rem;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--tomato);
+      box-shadow: 0 0 0 3px var(--tomato-glow);
+    }
+
+    select option {
+      background: var(--surface2);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .btn-primary {
+      margin-top: 1.4rem;
+      width: 100%;
+      background: var(--tomato);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem;
+      font-family: var(--font-head);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+      box-shadow: 0 4px 20px rgba(255, 77, 46, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: #ff3a18;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(255, 77, 46, 0.45);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-plan {
+      margin-top: 0.75rem;
+      width: 100%;
+      background: transparent;
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-family: var(--font-head);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .btn-plan:hover {
+      background: rgba(245, 197, 66, 0.1);
+      box-shadow: 0 0 20px rgba(245, 197, 66, 0.2);
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .tasks-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .task-count {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .task-count span {
+      color: var(--tomato);
+      font-weight: 500;
+    }
+
+    .tasks-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .task-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      transition: border-color 0.2s, transform 0.15s;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .task-item:hover {
+      border-color: #3e3e4e;
+      transform: translateX(3px);
+    }
+
+    .task-item.done {
+      opacity: 0.4;
+    }
+
+    .task-item.done .task-title {
+      text-decoration: line-through;
+    }
+
+    .task-check {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .task-check:hover {
+      border-color: var(--green);
+    }
+
+    .task-check.checked {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .task-check.checked::after {
+      content: '✓';
+      font-size: 10px;
+      color: #0e0e10;
+      font-weight: bold;
+    }
+
+    .task-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-title {
+      font-family: var(--font-head);
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+      font-weight: 500;
+    }
+
+    .tag-cat {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .tag-p1 {
+      background: rgba(255, 77, 46, 0.15);
+      color: var(--tomato);
+    }
+
+    .tag-p2 {
+      background: rgba(245, 197, 66, 0.12);
+      color: var(--gold);
+    }
+
+    .tag-p3 {
+      background: rgba(62, 207, 122, 0.12);
+      color: var(--green);
+    }
+
+    .tag-pomo {
+      background: rgba(91, 141, 238, 0.12);
+      color: var(--blue);
+    }
+
+    .task-deadline {
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    .task-deadline.warning {
+      color: var(--gold);
+    }
+
+    .task-deadline.overdue {
+      color: var(--tomato);
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.55rem;
+    }
+
+    .progress-range {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green) 0%, var(--green) var(--p, 0%), var(--border) var(--p, 0%), var(--border) 100%);
+      outline: none;
+      flex: 1;
+    }
+
+    .progress-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--green);
+      border: 2px solid #0e0e10;
+      box-shadow: 0 0 0 3px rgba(62, 207, 122, 0.18);
+      cursor: pointer;
+    }
+
+    .progress-range::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green) 0%, var(--green) var(--p, 0%), var(--border) var(--p, 0%), var(--border) 100%);
+    }
+
+    .progress-range::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--green);
+      border: 2px solid #0e0e10;
+      box-shadow: 0 0 0 3px rgba(62, 207, 122, 0.18);
+      cursor: pointer;
+    }
+
+    .progress-value {
+      min-width: 3ch;
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .task-menu {
+      position: relative;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .task-menu-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 8px;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+      letter-spacing: 0.12em;
+      font-family: var(--font-mono);
+    }
+
+    .task-menu-btn:hover {
+      color: var(--tomato);
+      border-color: var(--tomato);
+      background: rgba(255, 77, 46, 0.08);
+    }
+
+    .task-menu-dropdown {
+      position: absolute;
+      top: 1.4rem;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-width: 160px;
+      padding: 0.35rem;
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: all 0.15s;
+      z-index: 10;
+    }
+
+    .task-menu.open .task-menu-dropdown {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .task-menu-item {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text);
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: var(--font-mono);
+    }
+
+    .task-menu-item:hover {
+      background: var(--surface2);
+    }
+
+    .task-menu-item.danger {
+      color: var(--tomato);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .empty-state .big {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .empty-state p {
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .plan-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      min-height: 200px;
+    }
+
+    .plan-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      min-height: 200px;
+      color: var(--muted);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--tomato);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .plan-content {
+      font-size: 0.82rem;
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    .plan-header {
+      font-family: var(--font-head);
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--tomato);
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: block;
+    }
+
+    .plan-line {
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+
+    .plan-line.task-line {
+      background: var(--surface2);
+      border-left: 3px solid var(--tomato);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0 8px 8px 0;
+      margin: 0.5rem 0;
+    }
+
+    .plan-line.tip-line {
+      background: rgba(245, 197, 66, 0.06);
+      border-left: 3px solid var(--gold);
+      padding: 0.6rem 0.75rem;
+      border-radius: 0 8px 8px 0;
+      margin-top: 0.75rem;
+      color: var(--gold);
+    }
+
+    .plan-line.total-line {
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .plan-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      min-height: 200px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .plan-placeholder .icon {
+      font-size: 2.5rem;
+      opacity: 0.5;
+    }
+
+    .plan-placeholder p {
+      font-size: 0.8rem;
+      line-height: 1.6;
+      max-width: 220px;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1.2rem;
+      font-size: 0.82rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s;
+      z-index: 9000;
+      max-width: 300px;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #toast.success {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    #toast.error {
+      border-color: var(--tomato);
+      color: var(--tomato);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 1.25rem;
+      }
+
+      header {
+        padding: 1rem 1.25rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">
+      <span class="logo-tomato">🍅</span>
+      <span>AD-<span>lante</span></span>
+    </div>
+    <div class="badge-today" id="dateDisplay"></div>
+  </header>
+
+  <div class="container">
+    <div>
+      <div class="panel">
+        <div class="panel-title">➕ Nueva tarea</div>
+
+        <label>Tarea *</label>
+        <input type="text" id="inp-title" placeholder="¿Qué hay que hacer?" />
+
+        <label>Descripción</label>
+        <textarea id="inp-desc" placeholder="Detalles opcionales..."></textarea>
+
+        <div class="row-2">
+          <div>
+            <label>Tiempo estimado (min)</label>
+            <input type="number" id="inp-time" placeholder="45" min="5" />
+          </div>
+          <div>
+            <label>Prioridad</label>
+            <select id="inp-priority">
+              <option value="1">🔴 Crítico</option>
+              <option value="2" selected>🟡 Alto</option>
+              <option value="3">🟢 Medio</option>
+              <option value="4">⚪ Bajo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div>
+            <label>Deadline</label>
+            <input type="datetime-local" id="inp-deadline" />
+          </div>
+          <div>
+            <label>Categoría</label>
+            <select id="inp-category">
+              <option value="Trabajo">Trabajo</option>
+              <option value="Salud">Salud</option>
+              <option value="Familia">Familia</option>
+              <option value="Hackathon">Hackathon</option>
+              <option value="Comunicación">Comunicación</option>
+              <option value="Vida personal">Vida personal</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="addTask()">+ Agregar tarea</button>
+        <button class="btn-plan" onclick="generatePlan()">🍅 Generar Plan Pomodoro con IA</button>
+      </div>
+    </div>
+
+    <div class="right-col">
+      <div class="panel">
+        <div class="tasks-header">
+          <div class="panel-title" style="margin-bottom:0">📋 Tareas pendientes</div>
+          <div class="task-count">Total: <span id="taskCountNum">0</span></div>
+        </div>
+        <div class="tasks-list" id="tasksList">
+          <div class="empty-state">
+            <div class="big">🔄</div>
+            <p>Conectando con Supabase...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="plan-panel" id="planPanel">
+        <div class="panel-title">🤖 Plan Pomodoro IA</div>
+        <div class="plan-placeholder" id="planPlaceholder">
+          <div class="icon">🍅</div>
+          <p>Agrega tus tareas y pulsa <strong>"Generar Plan Pomodoro"</strong> para que la IA arme tu día perfecto.</p>
+        </div>
+        <div id="planOutput" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://bpnrnzlkzajqwpnakkea.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbnJuemxremFqcXdwbmFra2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDM5OTUsImV4cCI6MjA4NjUxOTk5NX0.hI3JqpqPYRP4Gu4MlnYFrMTTpd5eB1dZP1sXNqArXD0';
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const now = new Date();
+    document.getElementById('dateDisplay').textContent =
+      now.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+
+    function toast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'show ' + type;
+      setTimeout(() => { el.className = ''; }, 3200);
+    }
+
+    function escHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function clampProgress(value) {
+      const parsed = parseInt(value, 10);
+      if (Number.isNaN(parsed)) return 0;
+      return Math.max(0, Math.min(100, parsed));
+    }
+
+    async function loadTasks() {
+      const nowTime = new Date();
+      const { data, error } = await db
+        .from('tasks')
+        .select('*')
+        .eq('completed', false)
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('tasksList');
+
+      if (error) {
+        list.innerHTML = `<div class="empty-state"><div class="big">⚠️</div><p>Error: ${escHtml(error.message)}</p></div>`;
+        return;
+      }
+
+      document.getElementById('taskCountNum').textContent = data.length;
+
+      if (!data.length) {
+        list.innerHTML = `<div class="empty-state"><div class="big">✅</div><p>No hay tareas pendientes.<br/>¡Agrega tu primera tarea!</p></div>`;
+        return;
+      }
+
+      list.innerHTML = data.map(t => {
+        const prioTag = { 1: '🔴', 2: '🟡', 3: '🟢', 4: '⚪' }[t.priority] || '⚪';
+        const prioClass = `tag-p${Math.min(t.priority, 3)}`;
+        const prioLabel = { 1: 'Crítico', 2: 'Alto', 3: 'Medio', 4: 'Bajo' }[t.priority] || 'Bajo';
+        let deadlineHTML = '';
+        if (t.deadline) {
+          const dl = new Date(t.deadline);
+          const todayStart = new Date(nowTime.getFullYear(), nowTime.getMonth(), nowTime.getDate());
+          const deadlineStart = new Date(dl.getFullYear(), dl.getMonth(), dl.getDate());
+          const daysDiff = Math.round((deadlineStart - todayStart) / (24 * 3600 * 1000));
+          const deadlineClass = daysDiff <= 0 ? 'overdue' : (daysDiff <= 2 ? 'warning' : '');
+          deadlineHTML = `<span class="task-deadline ${deadlineClass}">📅 ${dl.toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>`;
+        }
+        const timeHTML = t.estimated_time ? `<span class="tag tag-pomo">⏱ ${t.estimated_time}min</span>` : '';
+        const pomosHTML = t.pomodoros_estimated ? `<span class="tag tag-pomo">🍅×${t.pomodoros_estimated}</span>` : '';
+        const progressValue = clampProgress(t.progress);
+        const showProgress = !!t.show_progress;
+        const progressHTML = showProgress ? `
+      <div class="progress-row">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value="${progressValue}"
+          class="progress-range"
+          style="--p:${progressValue}%"
+          oninput="updateProgressPreview('${t.id}', this)"
+          onchange="saveProgress('${t.id}', this)"
+          aria-label="Progreso"
+        />
+        <span class="progress-value" id="progress-label-${t.id}">${progressValue}%</span>
+      </div>` : '';
+        return `
+      <div class="task-item" id="task-${t.id}">
+        <div class="task-check" onclick="toggleTask('${t.id}', false)"></div>
+        <div class="task-body">
+          <div class="task-title">${escHtml(t.title)}</div>
+          <div class="task-meta">
+            <span class="tag ${prioClass}">${prioTag} ${prioLabel}</span>
+            ${t.category ? `<span class="tag tag-cat">${escHtml(t.category)}</span>` : ''}
+            ${timeHTML}${pomosHTML}${deadlineHTML}
+          </div>
+          ${progressHTML}
+        </div>
+        <div class="task-menu" id="task-menu-${t.id}">
+          <button class="task-menu-btn" onclick="toggleMenu('${t.id}')" aria-label="Opciones">...</button>
+          <div class="task-menu-dropdown">
+            <button class="task-menu-item" onclick="toggleProgressVisibility('${t.id}', ${showProgress ? 'false' : 'true'})">${showProgress ? 'Ocultar progreso' : 'Mostrar progreso'}</button>
+            <button class="task-menu-item danger" onclick="deleteTask('${t.id}')">Eliminar</button>
+          </div>
+        </div>
+      </div>`;
+      }).join('');
+    }
+
+    async function addTask() {
+      const title = document.getElementById('inp-title').value.trim();
+      if (!title) { toast('Escribe el nombre de la tarea 📝', 'error'); return; }
+
+      const time = parseInt(document.getElementById('inp-time').value) || null;
+      const deadline = document.getElementById('inp-deadline').value || null;
+      const priority = parseInt(document.getElementById('inp-priority').value);
+      const category = document.getElementById('inp-category').value;
+      const desc = document.getElementById('inp-desc').value.trim() || null;
+      const pomos = time ? Math.max(1, Math.ceil(time / 25)) : 1;
+
+      const { error } = await db.from('tasks').insert([{
+        title, description: desc,
+        estimated_time: time,
+        deadline: deadline ? new Date(deadline).toISOString() : null,
+        priority, category,
+        pomodoros_estimated: pomos,
+        progress: 0,
+        show_progress: false,
+        completed: false
+      }]);
+
+      if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+
+      toast('¡Tarea agregada! 🍅');
+      ['inp-title', 'inp-desc', 'inp-time', 'inp-deadline'].forEach(id => document.getElementById(id).value = '');
+      await loadTasks();
+    }
+
+    async function toggleTask(id) {
+      const { error } = await db.from('tasks')
+        .update({ completed: true, completed_at: new Date().toISOString(), progress: 100 })
+        .eq('id', id);
+
+      if (error) { toast('Error al actualizar', 'error'); return; }
+      toast('✅ ¡Completada! Excelente trabajo.');
+      await loadTasks();
+    }
+
+    function updateProgressPreview(id, el) {
+      const value = clampProgress(el.value);
+      el.value = value;
+      el.style.setProperty('--p', `${value}%`);
+      const label = document.getElementById(`progress-label-${id}`);
+      if (label) label.textContent = `${value}%`;
+    }
+
+    async function saveProgress(id, el) {
+      const value = clampProgress(el.value);
+      updateProgressPreview(id, el);
+
+      if (value >= 100) {
+        const { error } = await db.from('tasks')
+          .update({ progress: 100, completed: true, completed_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) { toast('Error al completar', 'error'); return; }
+        toast('✅ ¡Completada! Excelente trabajo.');
+        await loadTasks();
+        return;
+      }
+
+      const { error } = await db.from('tasks')
+        .update({ progress: value })
+        .eq('id', id);
+      if (error) { toast('Error al actualizar progreso', 'error'); return; }
+      toast('Progreso actualizado');
+    }
+
+    async function deleteTask(id) {
+      const { error } = await db.from('tasks').delete().eq('id', id);
+      if (error) { toast('Error al eliminar', 'error'); return; }
+      toast('Tarea eliminada 🗑️');
+      await loadTasks();
+    }
+
+    function closeAllMenus() {
+      document.querySelectorAll('.task-menu.open').forEach(menu => menu.classList.remove('open'));
+    }
+
+    function toggleMenu(id) {
+      const menu = document.getElementById(`task-menu-${id}`);
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      closeAllMenus();
+      if (!isOpen) menu.classList.add('open');
+    }
+
+    async function toggleProgressVisibility(id, show) {
+      closeAllMenus();
+      const { error } = await db.from('tasks')
+        .update({ show_progress: show })
+        .eq('id', id);
+      if (error) { toast('Error al actualizar', 'error'); return; }
+      await loadTasks();
+    }
+
+    async function generatePlan() {
+      const { data, error } = await db
+        .from('tasks')
+        .select('title, estimated_time, deadline, priority, category, pomodoros_estimated')
+        .eq('completed', false)
+        .order('priority')
+        .limit(20);
+
+      if (error || !data || !data.length) {
+        toast('No hay tareas pendientes para planificar 📋', 'error');
+        return;
+      }
+
+      const placeholder = document.getElementById('planPlaceholder');
+      const output = document.getElementById('planOutput');
+      placeholder.style.display = 'none';
+      output.style.display = 'block';
+      output.innerHTML = `<div class="plan-loading"><div class="spinner"></div><span>Armando tu plan Pomodoro perfecto...</span></div>`;
+
+      const taskList = data.map(t => {
+        const dl = t.deadline ? ` | Deadline: ${new Date(t.deadline).toLocaleString('es-CO')}` : '';
+        const time = t.estimated_time ? ` | ~${t.estimated_time}min` : '';
+        const cat = t.category ? ` | ${t.category}` : '';
+        const prio = { 1: '🔴 Crítico', 2: '🟡 Alto', 3: '🟢 Medio', 4: '⚪ Bajo' }[t.priority] || '';
+        return `- ${t.title}${time}${dl}${cat} [${prio}]`;
+      }).join('\n');
+
+      const todayStr = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      const prompt = `Eres un coach de productividad implacable que combina priorización extrema con la técnica Pomodoro para maximizar eficiencia y mantener flujo de trabajo conectado sin quemarse.
+
+Reglas Pomodoro:
+- 1 pomodoro = 25 min de trabajo ultra-concentrado en UNA tarea
+- Descanso 5 min tras cada pomodoro
+- Pausa larga 15-30 min cada 4 pomodoros
+- Tareas >4 pomodoros: romper en sub-tareas
+- Tareas <25 min: agrupar en un pomodoro
+
+Criterios de priorización (orden estricto):
+1. Urgencia + deadlines duros (hoy/mañana → primero)
+2. Impacto alto (ingresos, metas clave, salud, relaciones)
+3. Dependencias (desbloquea otras tareas)
+4. Momentum: quick wins al principio
+5. Tareas pesadas con energía fresca
+6. Máx 8-12 pomodoros/día realistas
+
+Fecha hoy: ${todayStr}. Usuario en Bogotá, Colombia.
+
+FORMATO OBLIGATORIO (solo esto, sin texto extra):
+Plan Pomodoro para hoy:
+1. [Tarea] – X pomodoros (Y-Z min) – Razón corta
+   - Sugerencia: [consejo práctico]
+2. ...
+Tareas agrupadas en pomodoro: [si aplica]
+Tiempo total estimado: ~W pomodoros (≈ total min trabajo + descansos)
+Consejo Pomodoro del día: [1-2 frases motivadoras y prácticas]
+
+Lista de tareas:
+${taskList}`;
+
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+        const json = await res.json();
+        const text = json?.content?.[0]?.text || 'No se pudo generar el plan.';
+        renderPlan(text);
+      } catch (e) {
+        output.innerHTML = `<div style="color:var(--tomato);font-size:0.82rem;">Error: ${escHtml(e.message)}</div>`;
+      }
+    }
+
+    function renderPlan(text) {
+      const output = document.getElementById('planOutput');
+      const lines = text.split('\n');
+      let html = '';
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t) { html += '<br/>'; continue; }
+        if (t.startsWith('Plan Pomodoro')) {
+          html += `<div class="plan-header">${escHtml(t)}</div>`;
+        } else if (/^\d+\./.test(t)) {
+          html += `<div class="plan-line task-line">${escHtml(t)}</div>`;
+        } else if (t.startsWith('Consejo Pomodoro')) {
+          html += `<div class="plan-line tip-line">💡 ${escHtml(t)}</div>`;
+        } else if (t.startsWith('Tiempo total')) {
+          html += `<div class="plan-line total-line">⏱ ${escHtml(t)}</div>`;
+        } else {
+          html += `<div class="plan-line" style="padding-left:1rem;color:var(--muted)">${escHtml(t)}</div>`;
+        }
+      }
+      output.innerHTML = `<div class="plan-content">${html}</div>`;
+    }
+
+    loadTasks();
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.task-menu')) closeAllMenus();
+    });
+  </script>
+</body>
+
+</html>
