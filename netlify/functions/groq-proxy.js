@@ -1,9 +1,25 @@
 exports.handler = async (event) => {
-    try {
-        const { prompt, model = 'llama-3.1-8b-instant' } = JSON.parse(event.body);  // Recibe prompt y modelo opcional
-        const groqKey = process.env.GROQ_API_KEY;  // Aquí SÍ lee la env var segura
+    // Solo aceptar POST
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
+    }
 
-        if (!groqKey) throw new Error('Missing GROQ_API_KEY');
+    try {
+        const { userPrompt, systemPrompt, model = 'llama-3.1-8b-instant' } = JSON.parse(event.body);
+        const groqKey = process.env.GROQ_API_KEY;  // Lee la env var segura de Netlify
+
+        if (!groqKey) {
+            return { statusCode: 500, body: JSON.stringify({ error: 'GROQ_API_KEY no configurada en Netlify' }) };
+        }
+
+        if (!userPrompt) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Falta userPrompt en el body' }) };
+        }
+
+        // Construir mensajes: system es opcional
+        const messages = [];
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+        messages.push({ role: 'user', content: userPrompt });
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -15,15 +31,30 @@ exports.handler = async (event) => {
                 model,
                 max_tokens: 2000,
                 temperature: 0.1,
-                messages: [{ role: 'user', content: prompt }]
+                messages
             })
         });
 
-        if (!response.ok) throw new Error(`Groq error: ${response.status}`);
-
         const data = await response.json();
-        return { statusCode: 200, body: JSON.stringify(data) };
+
+        if (!response.ok) {
+            return {
+                statusCode: response.status,
+                body: JSON.stringify({ error: data?.error?.message || `Groq error ${response.status}` })
+            };
+        }
+
+        // Devolver la respuesta de Groq tal cual al browser
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        };
+
     } catch (error) {
-        return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
+        };
     }
 };

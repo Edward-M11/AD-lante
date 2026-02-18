@@ -1010,9 +1010,9 @@
     const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ── Groq API Key ─────────────────────────────────
-    // Obtén tu key GRATIS en: https://console.groq.com → API Keys → Create
-    // DEV: pega tu key aquí (no commitear al repo) | PROD: usa Netlify proxy
-    const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+    // La API key vive en Netlify Environment Variables (GROQ_API_KEY)
+    // El browser llama al proxy /.netlify/functions/groq-proxy, nunca directo a Groq
+    const GROQ_PROXY_URL = '/.netlify/functions/groq-proxy';
 
     const now = new Date();
     document.getElementById('dateDisplay').textContent =
@@ -1162,14 +1162,6 @@
       btn.disabled = true;
       btn.textContent = '✨ Procesando con IA...';
 
-      // Chequeo rápido de API key
-      if (!GROQ_API_KEY) {
-        toast('❌ Falta la Groq API key. Configúrala en el código (GROQ_API_KEY).', 'error');
-        btn.disabled = false;
-        btn.textContent = '+ Agregar tarea';
-        return;
-      }
-
       const today = new Date();
       const todayISO = today.toISOString().split('T')[0];
       const todayStr = today.toLocaleDateString('es-CO', {
@@ -1195,33 +1187,25 @@ Responde SOLO con el JSON array. Ejemplo:
 [{"title":"Ir a la universidad","description":"asistir a una monitoria","estimated_time":90,"deadline":"${todayISO}T08:00:00-05:00","priority":2,"category":"Educación","pomodoros_estimated":4}]`;
 
       try {
-        console.log('[AD-lante] Llamando Groq API para parsear tareas...');
+        console.log('[AD-lante] Llamando proxy Groq para parsear tareas...');
 
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const res = await fetch(GROQ_PROXY_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${GROQ_API_KEY}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',  // Rápido y gratis en Groq
-            max_tokens: 2000,
-            temperature: 0.1,  // Baja temperatura → más determinista para JSON
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ]
+            model: 'llama-3.1-8b-instant',
+            systemPrompt,
+            userPrompt
           })
         });
 
         const json = await res.json();
-        console.log('[AD-lante] Respuesta Groq:', json);
+        console.log('[AD-lante] Respuesta proxy:', json);
 
-        // Detectar errores HTTP de Groq (401, 403, 429, etc.)
         if (!res.ok || json.error) {
-          const errMsg = json?.error?.message || `HTTP ${res.status}`;
-          console.error('[AD-lante] Error de API:', errMsg);
-          toast(`❌ Error de API: ${errMsg}`, 'error');
+          const errMsg = json?.error || `HTTP ${res.status}`;
+          console.error('[AD-lante] Error de proxy:', errMsg);
+          toast(`❌ Error: ${errMsg}`, 'error');
           return;
         }
 
@@ -1491,17 +1475,12 @@ Lista de tareas:
 ${taskList}`;
 
       try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const res = await fetch(GROQ_PROXY_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${GROQ_API_KEY}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',  // Modelo más capaz para el plan Pomodoro
-            max_tokens: 1000,
-            temperature: 0.7,
-            messages: [{ role: 'user', content: prompt }]
+            model: 'llama-3.3-70b-versatile',
+            userPrompt: prompt
           })
         });
         const json = await res.json();
