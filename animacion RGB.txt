@@ -1,0 +1,18 @@
+/* Código de animación RGB y efectos de movimiento para tareas afectadas */
+.task-item.affected-up {
+  border-top: 2px solid var(--tomato);
+  transform: translateY(-6px);
+  animation: affectedPulse 0.4s ease-out infinite;
+}
+
+.task-item.affected-down {
+  border-bottom: 2px solid var(--tomato);
+  transform: translateY(6px);
+  animation: affectedPulse 0.4s ease-out infinite;
+}
+
+@keyframes affectedPulse {
+  0% { border-color: var(--tomato); }
+  50% { border-color: #fff; box-shadow: 0 0 10px var(--tomato-glow); }
+  100% { border-color: var(--tomato); }
+}

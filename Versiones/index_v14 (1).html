@@ -1,0 +1,4636 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AD-lante 🍅 Coach Pomodoro</title>
+  <link rel="icon" id="dynamic-favicon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍅</text></svg>">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      /* Fuerza el tema oscuro en elementos del browser como selects */
+      --bg: #0e0e10;
+      --surface: #18181c;
+      --surface2: #222228;
+      --border: #2e2e38;
+      --tomato: #ff4d2e;
+      --tomato-glow: rgba(255, 77, 46, 0.18);
+      --pomo-work: #ff4d2e;
+      --pomo-short: #ff8a65;
+      --pomo-long: #d32f2f;
+      /* Más intenso por defecto */
+      --gold: #f5c542;
+      --green: #3ecf7a;
+      --blue: #5b8dee;
+      --blue-diamond: #4deeea;
+      --text: #f0eff4;
+      --muted: #7a7a8c;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: auto;
+    }
+
+    .logo-tomato,
+    .pomo-tab,
+    .moment-rect,
+    .s-icon,
+    .logo span {
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .logo-tomato,
+    .moment-rect span,
+    .moment-rect img {
+      pointer-events: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.35;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.4rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(14, 14, 16, 0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-family: var(--font-head);
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-tomato {
+      font-size: 1.6rem;
+      animation: bob 3s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-4px);
+      }
+    }
+
+    .logo span {
+      color: var(--tomato);
+    }
+
+    .badge-today {
+      font-size: 0.72rem;
+      background: var(--surface2);
+      border: 1px solid var(--tomato);
+      color: var(--tomato);
+      border-radius: 20px;
+      padding: 0.3rem 0.75rem;
+      letter-spacing: 0.04em;
+      position: relative;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    /* Línea de progreso debajo del texto, más evidente */
+    .badge-today::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: var(--day-p, 0%);
+      height: 4px;
+      /* Más grueso */
+      background: var(--tomato);
+      box-shadow: 0 0 8px var(--tomato-glow);
+      /* Añadido brillo */
+      opacity: 0.9;
+    }
+
+    .container {
+      max-width: none;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .col-left {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      position: sticky;
+      top: 1.5rem;
+    }
+
+    .col-right {
+      grid-column: 2;
+      position: sticky;
+      top: 1.5rem;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      height: 820px;
+      /* Incrementado para evitar que se salgan los botones */
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-title {
+      font-family: var(--font-head);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.4rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      margin-top: 1.6rem;
+      /* Aumentado para mejor separación */
+    }
+
+    label:first-of-type {
+      margin-top: 0;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      padding: 0.6rem 0.85rem;
+      transition: border-color 0.2s, background 0.2s;
+      outline: none;
+      appearance: none;
+      /* Quita el diseño nativo */
+      -webkit-appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.5)'%3E%3Cpath d='M2 4l4 4 4-4H2z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      padding-right: 2.5rem;
+    }
+
+    /* Evitar el recuadro blanco al poner el ratón encima en select */
+    select:hover {
+      background-color: var(--surface2) !important;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--tomato);
+      box-shadow: 0 0 0 3px var(--tomato-glow);
+    }
+
+    /* Fix para fondo blanco en autocompletado de Opera/Chrome */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill,
+    textarea:-webkit-autofill:hover,
+    textarea:-webkit-autofill:focus,
+    select:-webkit-autofill,
+    select:-webkit-autofill:hover,
+    select:-webkit-autofill:focus {
+      -webkit-text-fill-color: var(--text);
+      -webkit-box-shadow: 0 0 0px 1000px var(--surface2) inset;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+
+    select option {
+      background: var(--surface2);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      /* Tamaño mínimo inicial */
+      max-height: 300px;
+      /* Evita que crezca demasiado */
+    }
+
+    input#inp-title {
+      max-height: 45px;
+      /* Límite para el campo de tarea */
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    /* Proporción simétrica (igual que Tiempo y Prioridad) */
+    .row-2-asymmetric {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* Espacio entre grupos de campos */
+    .row-group {
+      margin-top: 2rem;
+    }
+
+    .task-item:has(.task-menu.open) {
+      z-index: 100;
+      position: relative;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-3px);
+      }
+
+      40% {
+        transform: translateX(3px);
+      }
+
+      60% {
+        transform: translateX(-3px);
+      }
+
+      80% {
+        transform: translateX(3px);
+      }
+    }
+
+    .shake {
+      animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+    }
+
+    /* Bulk text divider */
+    .bulk-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 1.2rem 0 0.2rem;
+    }
+
+    .bulk-divider::before,
+    .bulk-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .bulk-divider span {
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Bulk hint badge */
+    .bulk-hint {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+      line-height: 1.5;
+      display: block;
+    }
+
+    .btn-primary {
+      margin-top: 1.4rem;
+      width: 100%;
+      background: var(--tomato);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem;
+      font-family: var(--font-head);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+      box-shadow: 0 4px 20px rgba(255, 77, 46, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--tomato);
+      filter: brightness(1.25);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px var(--tomato-glow);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-plan {
+      margin-top: 0.75rem;
+      width: 100%;
+      background: transparent;
+      color: var(--blue-diamond);
+      border: 1px solid var(--blue-diamond);
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-family: var(--font-head);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.18s;
+      position: relative;
+    }
+
+    .btn-plan:hover {
+      background: rgba(77, 238, 234, 0.1);
+      box-shadow: 0 0 20px rgba(77, 238, 234, 0.2);
+    }
+
+    .btn-plan .btn-plan-tooltip {
+      visibility: hidden;
+      position: absolute;
+      bottom: 115%;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--surface);
+      border: 1px solid var(--blue-diamond);
+      padding: 0.5rem 0.8rem;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      color: var(--text);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      z-index: 2000;
+      opacity: 0;
+      transition: all 0.2s ease;
+      pointer-events: none;
+      font-family: var(--font-mono);
+    }
+
+    .btn-plan:hover .btn-plan-tooltip {
+      visibility: visible;
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .tasks-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .task-count {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .task-count span {
+      color: var(--tomato);
+      font-weight: 500;
+    }
+
+    .tasks-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding: 0.6rem;
+      padding-bottom: 200px;
+      /* Mas espacio al final para tooltips y menus */
+      /* Espacio extra para que los menús de las últimas tareas no se corten */
+    }
+
+    .task-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      display: flex;
+      align-items: center;
+      /* Centrado vertical para todo */
+      gap: 0.85rem;
+      transition: all 0.2s;
+      animation: slideIn 0.3s ease;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      color: var(--text);
+      /* Más brillante */
+      opacity: 0.5;
+      transition: all 0.2s;
+      padding: 6px;
+      /* Más área de clic */
+      user-select: none;
+      font-size: 1.4rem;
+      /* Más grande */
+      line-height: 1;
+      margin-left: -4px;
+      /* Unir un poco más al borde */
+    }
+
+    .task-item:hover .drag-handle {
+      opacity: 0.9;
+      color: var(--tomato);
+      /* Un toque de color al pasar el mouse */
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    body:not(.theme-default) .task-item {
+      border-color: var(--tomato);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes taskPop {
+      0% {
+        transform: scale(1);
+        box-shadow: none;
+      }
+
+      50% {
+        transform: scale(1.015);
+        box-shadow: 0 0 20px var(--tomato-glow), 0 0 10px var(--tomato);
+        border-color: var(--tomato);
+        z-index: 1000;
+        background: var(--surface);
+      }
+
+      100% {
+        transform: scale(1);
+        box-shadow: none;
+      }
+    }
+
+    .task-pop {
+      animation: taskPop 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+      position: relative;
+      z-index: 999;
+      pointer-events: none;
+      /* Evita que el ratón reactive estados durante la animación */
+    }
+
+    .task-item:hover:not(.task-pop) {
+      border-color: var(--tomato);
+      transform: translateX(3px);
+      animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+    }
+
+    .task-item.done {
+      opacity: 0.4;
+    }
+
+    .task-item.done .task-title {
+      text-decoration: line-through;
+    }
+
+    .task-check {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--tomato);
+      border-radius: 50%;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .task-check:hover {
+      background: #fff;
+      border-color: var(--tomato);
+    }
+
+    /* Vibrar toda la tarea cuando se hace hover en el botón de completar */
+    .task-item:has(.task-check:hover) {
+      animation: shake 0.3s cubic-bezier(.36, .07, .19, .97) infinite !important;
+      border-color: var(--tomato);
+    }
+
+    .task-check.checked {
+      background: var(--tomato);
+      border-color: var(--tomato);
+    }
+
+    .task-check.checked::after {
+      content: '✓';
+      font-size: 11px;
+      color: #0e0e10;
+      font-weight: bold;
+    }
+
+    .title-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      /* flex: 1;  <-- Eliminado para que el icono de info esté al lado */
+    }
+
+    .task-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .task-title {
+      font-family: var(--font-head);
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.1rem;
+      /* Reducido espacio */
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .tag:hover,
+    .tag-p1:hover,
+    .tag-p2:hover,
+    .tag-p3:hover,
+    .tag-cat:hover,
+    .tag-pomo:hover,
+    .task-deadline:hover {
+      transform: translateY(-2.5px) !important;
+      filter: brightness(1.1);
+      color: inherit !important;
+    }
+
+    .tag-cat {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .tag-p1 {
+      background: rgba(255, 77, 46, 0.15);
+      color: var(--tomato);
+    }
+
+    .tag-p2 {
+      background: rgba(255, 77, 46, 0.1);
+      /* Fondo sutil basado en el tema */
+      color: var(--tomato);
+      /* Color del tema */
+      border: 1px solid var(--tomato-glow);
+    }
+
+    .tag-p3 {
+      background: rgba(62, 207, 122, 0.12);
+      color: var(--green);
+    }
+
+    body:not(.theme-default) .tag-p3 {
+      background: var(--tomato-glow);
+      opacity: 0.9;
+    }
+
+    .tag-pomo {
+      background: rgba(91, 141, 238, 0.12);
+      color: var(--blue);
+    }
+
+    body:not(.theme-default) .tag-pomo {
+      background: var(--tomato-glow);
+      color: var(--tomato);
+    }
+
+    .task-deadline {
+      font-size: 0.65rem;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    /* Los colores de urgencia solo cambian el texto/borde, NO el fondo */
+    .task-deadline.dl-ok {
+      color: var(--muted);
+    }
+
+    .task-deadline.dl-soon1 {
+      color: var(--gold);
+      border-color: rgba(245, 197, 66, 0.4);
+    }
+
+    .task-deadline.dl-soon2 {
+      color: var(--gold);
+      border-color: rgba(245, 197, 66, 0.6);
+      font-weight: 600;
+    }
+
+    .task-deadline.dl-soon3 {
+      color: #ff9800;
+      border-color: rgba(255, 152, 0, 0.5);
+      font-weight: 600;
+    }
+
+    .task-deadline.dl-crit {
+      color: #ff5252;
+      border-color: rgba(255, 82, 82, 0.5);
+      font-weight: 700;
+    }
+
+    .task-deadline.dl-fire {
+      color: var(--tomato);
+      border-color: var(--tomato);
+      font-weight: 700;
+    }
+
+    .task-deadline.dl-venc {
+      color: var(--tomato);
+      border-color: var(--tomato);
+      font-weight: 700;
+      opacity: 0.85;
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.55rem;
+      overflow: visible;
+      /* Crucial para que el thumb no se corte en los bordes */
+    }
+
+    @keyframes liquid {
+      from {
+        background-position: 0 0, 0 0;
+      }
+
+      to {
+        background-position: 28px 0, 0 0;
+      }
+    }
+
+    .progress-range {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background:
+        repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 0, rgba(255, 255, 255, 0.1) 10px, transparent 10px, transparent 20px),
+        linear-gradient(90deg, var(--green) 0%, var(--green) var(--p, 0%), var(--border) var(--p, 0%), var(--border) 100%);
+      background-size: 28px 28px, 100% 100%;
+      animation: liquid 2s linear infinite;
+      outline: none;
+      flex: 1;
+    }
+
+    .progress-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--tomato);
+      border: 2px solid #0e0e10;
+      box-shadow: 0 0 0 3px var(--tomato-glow);
+      cursor: pointer;
+      /* Ajuste para centrado vertical visual (0px = abajo) */
+      margin-top: 0px;
+    }
+
+    .progress-range {
+      padding: 0;
+      margin: 0;
+      overflow: visible;
+      /* Permite que el thumb llegue a los bordes visualmente */
+    }
+
+    /* Firefox solo para asegurar el inicio pegado */
+    .progress-range::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--tomato);
+      border: 2px solid #0e0e10;
+      box-shadow: 0 0 0 3px var(--tomato-glow);
+      cursor: pointer;
+    }
+
+    .progress-range::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green) 0%, var(--green) var(--p, 0%), var(--border) var(--p, 0%), var(--border) 100%);
+    }
+
+    .progress-range::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--green);
+      border: 2px solid #0e0e10;
+      box-shadow: 0 0 0 3px rgba(62, 207, 122, 0.18);
+      cursor: pointer;
+    }
+
+    .progress-value {
+      min-width: 3ch;
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .task-menu {
+      position: relative;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .task-menu-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 8px;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+      letter-spacing: 0.12em;
+      font-family: var(--font-mono);
+    }
+
+    .task-menu-btn:hover {
+      color: var(--tomato);
+      border-color: var(--tomato);
+      background: rgba(255, 77, 46, 0.08);
+    }
+
+    .task-menu-dropdown {
+      position: absolute;
+      top: 1.4rem;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-width: 160px;
+      padding: 0.35rem;
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: all 0.15s;
+      z-index: 10;
+    }
+
+    .task-menu.open .task-menu-dropdown {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Clase para abrir el menú hacia arriba si está al final de la lista */
+    .task-menu.open-up .task-menu-dropdown {
+      top: auto;
+      bottom: 2rem;
+      transform: translateY(6px);
+    }
+
+    .task-menu.open-up.open .task-menu-dropdown {
+      transform: translateY(0);
+    }
+
+    .task-menu-item {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text);
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: var(--font-mono);
+    }
+
+    .task-menu-item:hover {
+      background: var(--surface2);
+    }
+
+    .task-menu-item.danger {
+      color: var(--tomato);
+    }
+
+    .task-menu-item.edit {
+      color: var(--blue);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .empty-state .big {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .empty-state p {
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .plan-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      height: 640px;
+      /* Altura fija para alineación con cronómetro */
+      display: flex;
+      flex-direction: column;
+    }
+
+    .plan-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      margin-top: 0.5rem;
+      scrollbar-gutter: stable;
+    }
+
+    .plan-history-btn {
+      font-size: 0.68rem;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.35rem 0.7rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.22s;
+    }
+
+    .plan-history-btn:hover {
+      border-color: var(--tomato);
+      color: var(--tomato);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--tomato-glow);
+    }
+
+    .plan-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      min-height: 200px;
+      color: var(--muted);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--tomato);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .plan-content {
+      font-size: 0.82rem;
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    .plan-header {
+      font-family: var(--font-head);
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--tomato);
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: block;
+    }
+
+    .plan-line {
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+
+    .plan-line.task-line {
+      background: var(--surface2);
+      border-left: 3px solid var(--tomato);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0 8px 8px 0;
+      margin: 0.5rem 0;
+    }
+
+    .plan-line.tip-line {
+      background: rgba(245, 197, 66, 0.06);
+      border-left: 3px solid var(--gold);
+      padding: 0.6rem 0.75rem;
+      border-radius: 0 8px 8px 0;
+      margin-top: 0.75rem;
+      color: var(--gold);
+    }
+
+    .plan-line.total-line {
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .plan-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      min-height: 200px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .plan-placeholder .icon {
+      font-size: 2.5rem;
+      opacity: 0.5;
+    }
+
+    .plan-placeholder p {
+      font-size: 0.8rem;
+      line-height: 1.6;
+      max-width: 220px;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1.2rem;
+      font-size: 0.82rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s;
+      z-index: 9000;
+      max-width: 300px;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #toast.success {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    #toast.error {
+      border-color: var(--tomato);
+      color: var(--tomato);
+    }
+
+    /* ── Edit Modal ─────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(4px);
+      z-index: 5000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .modal-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideUp 0.22s ease;
+      position: relative;
+      scrollbar-width: none;
+      /* Firefox */
+      -ms-overflow-style: none;
+      /* IE/Edge */
+    }
+
+    .modal-panel::-webkit-scrollbar {
+      display: none;
+      /* Chrome/Safari */
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.4rem;
+    }
+
+    .modal-title {
+      font-family: var(--font-head);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .modal-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: var(--tomato);
+      border-color: var(--tomato);
+    }
+
+    .btn-save {
+      margin-top: 1.4rem;
+      width: 100%;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem;
+      font-family: var(--font-head);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.12s;
+      box-shadow: 0 4px 20px rgba(91, 141, 238, 0.3);
+    }
+
+    .btn-save:hover {
+      background: #4a7de8;
+      transform: translateY(-1px);
+    }
+
+    .btn-save:active {
+      transform: translateY(0);
+    }
+
+    .btn-save:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 1.25rem;
+      }
+
+      header {
+        padding: 1rem 1.25rem;
+      }
+
+      .modal-panel {
+        margin: 1rem;
+        max-width: none;
+      }
+    }
+
+    /* ── v1.2: Contadores header ────────────────────────────── */
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex: 1;
+      justify-content: center;
+    }
+
+    .counter-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.28rem 0.85rem;
+      font-size: 0.76rem;
+      font-family: var(--font-mono);
+      color: var(--text);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .counter-badge.tomates {
+      border-color: rgba(255, 77, 46, 0.4);
+    }
+
+    .counter-badge.oro {
+      border-color: var(--blue-diamond);
+      box-shadow: 0 0 10px rgba(77, 238, 234, 0.15);
+    }
+
+    .counter-badge .c-val {
+      font-weight: 700;
+      font-family: var(--font-head);
+      font-size: 0.88rem;
+    }
+
+    .counter-badge.tomates .c-val {
+      color: var(--tomato);
+    }
+
+    .counter-badge.oro .c-val {
+      color: var(--blue-diamond);
+    }
+
+    .counter-badge.tomates.bump {
+      animation: bump 0.35s ease;
+    }
+
+    @keyframes bump {
+
+      0%,
+      100% {
+        transform: scale(1)
+      }
+
+      50% {
+        transform: scale(1.18)
+      }
+    }
+
+    /* ── v1.2: Botones header ───────────────────────────────── */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .btn-header:hover,
+    .btn-buy:not(:disabled):hover,
+    .btn-primary:not(:disabled):hover,
+    .pomo-btn:hover,
+    .btn-save:not(:disabled):hover,
+    .task-check:hover,
+    .shop-item:hover,
+    .task-menu-item:hover,
+    .moment-rect:hover,
+    .btn-plan:hover,
+    .modal-close:hover,
+    .shop-tab:hover,
+    .shop-default-btn:hover {
+      transform: translateY(-2.5px) !important;
+    }
+
+    .btn-header {
+      background: var(--surface2);
+      border: 1px solid var(--tomato);
+      color: var(--tomato);
+      border-radius: 20px;
+      padding: 0.28rem 0.85rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+
+    .btn-header:hover {
+      background: var(--tomato-glow);
+      filter: brightness(1.2);
+    }
+
+    /* ── v1.2: Modal Historial ──────────────────────────────── */
+    .modal-panel.wide {
+      max-width: 560px;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      max-height: 58vh;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .history-empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 2.5rem 0;
+    }
+
+    .history-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.22s ease;
+    }
+
+    .history-item .h-check {
+      font-size: 1rem;
+      flex-shrink: 0;
+      color: var(--green);
+    }
+
+    .history-item .h-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-item .h-title {
+      font-family: var(--font-head);
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-item .h-meta {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .history-item .h-pomo {
+      color: var(--tomato);
+    }
+
+    .history-item .h-date {
+      color: var(--muted);
+    }
+
+    /* ── v1.2: Modal Huerta / Tienda ────────────────────────── */
+    .shop-tomates-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 77, 46, 0.07);
+      border: 1px solid rgba(255, 77, 46, 0.2);
+      border-radius: 10px;
+      padding: 0.55rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.8rem;
+    }
+
+    .shop-tomates-bar strong {
+      color: var(--tomato);
+      font-family: var(--font-head);
+      font-size: 0.95rem;
+    }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+    }
+
+    .shop-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      text-align: center;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+
+    .shop-item:hover {
+      border-color: var(--tomato);
+      transform: translateY(-2px);
+    }
+
+    .shop-item.owned {
+      border-color: var(--tomato);
+    }
+
+    .shop-item .s-icon {
+      font-size: 1.9rem;
+    }
+
+    .shop-item .s-name {
+      font-family: var(--font-head);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .shop-item .s-desc {
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .shop-item .s-price {
+      font-size: 0.72rem;
+      color: var(--tomato);
+      font-weight: 600;
+      margin-top: 0.2rem;
+    }
+
+    .btn-buy {
+      margin-top: 0.3rem;
+      background: var(--tomato);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.32rem 0.9rem;
+      font-family: var(--font-head);
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.12s;
+      width: 100%;
+    }
+
+    .btn-buy:hover {
+      background: #ff3a18;
+      transform: translateY(-1px);
+    }
+
+    .btn-buy.owned-btn {
+      background: var(--green);
+      cursor: default;
+    }
+
+    .btn-buy:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-select {
+      margin-top: 0.3rem;
+      background: transparent;
+      color: var(--tomato);
+      border: 1px solid var(--tomato);
+      border-radius: 8px;
+      padding: 0.35rem 0.9rem;
+      font-family: var(--font-head);
+      font-size: 0.85rem;
+      /* Más grande */
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      width: 100%;
+    }
+
+    .btn-select:hover {
+      background: var(--tomato-glow);
+      transform: translateY(-2px);
+      /* Levantar un poco */
+      font-weight: 700;
+      /* Negrita menos pesada */
+    }
+
+    .btn-select.active-theme {
+      background: var(--tomato);
+      color: #0e0e10;
+      border-color: var(--tomato);
+      cursor: default;
+      font-weight: 600;
+      /* Sin negrita extra para 'Activo' */
+      transform: none !important;
+    }
+
+    /* ── Temas de color ────────────────────────────── */
+    body.theme-rojo {
+      --tomato: #ff1744;
+      --tomato-glow: rgba(255, 23, 68, 0.22);
+      --pomo-work: #ff1744;
+      --pomo-short: #ff5252;
+      --pomo-long: #ff8a80;
+      /* Más brillante */
+    }
+
+    body.theme-azul {
+      --tomato: #2979ff;
+      --tomato-glow: rgba(41, 121, 255, 0.22);
+      --pomo-work: #2979ff;
+      --pomo-short: #82b1ff;
+      --pomo-long: #40c4ff;
+      /* Más brillante */
+      --green: #2979ff;
+    }
+
+    body.theme-verde {
+      --tomato: #00c853;
+      --tomato-glow: rgba(0, 200, 83, 0.22);
+      --pomo-work: #00c853;
+      --pomo-short: #69f0ae;
+      --pomo-long: #b9f6ca;
+      /* Más brillante */
+      --gold: #00c853;
+    }
+
+    body.theme-oro {
+      --tomato: #ccac00;
+      --tomato-glow: rgba(204, 172, 0, 0.22);
+      --pomo-work: #ccac00;
+      --pomo-short: #ffd600;
+      --pomo-long: #fff176;
+      /* Más brillante */
+      --green: #ccac00;
+      --blue: #ccac00;
+    }
+
+    body.theme-rosa {
+      --tomato: #f06292;
+      --tomato-glow: rgba(240, 98, 146, 0.22);
+      --pomo-work: #f06292;
+      --pomo-short: #f48fb1;
+      --pomo-long: #c2185b;
+      --green: #f06292;
+    }
+
+    body.theme-morado {
+      --tomato: #7c4dff;
+      --tomato-glow: rgba(124, 77, 255, 0.22);
+      --pomo-work: #7c4dff;
+      --pomo-short: #ea80fc;
+      --pomo-long: #b388ff;
+      --green: #7c4dff;
+    }
+
+    /* btn-primary hover usa el color del tema actual */
+    .btn-primary:hover {
+      background: var(--tomato);
+      filter: brightness(1.25);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px var(--tomato-glow);
+    }
+
+    /* ── Fondos de textura ──────────────────────────── */
+    body.bg-diagonales {
+      background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.025) 0, rgba(255, 255, 255, 0.025) 1px, transparent 1px, transparent 14px);
+    }
+
+    body.bg-puntos {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+      background-size: 18px 18px;
+    }
+
+    body.bg-cuadros {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    body.bg-hexagons {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='32'%3E%3Cpath d='M14 2l12 7v14l-12 7L2 23V9z' fill='none' stroke='rgba(255,255,255,0.045)' stroke-width='1'/%3E%3C/svg%3E");
+      background-size: 28px 32px;
+    }
+
+    body.bg-circuito {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px, 40px 40px, 20px 20px;
+    }
+
+    body.bg-ondas {
+      background-image: repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 12px, rgba(255, 255, 255, 0.025) 12px, rgba(255, 255, 255, 0.025) 13px);
+      background-size: 50px 50px;
+    }
+
+    @media (max-width: 768px) {
+      .header-center {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        gap: 0.4rem;
+      }
+
+      .shop-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── Pestañas Huerta ────────────────────────────── */
+    .shop-tabs {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .shop-tab {
+      flex: 1;
+      /* Para que midan lo mismo */
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 0.3rem 1rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .shop-tab.active {
+      background: var(--tomato);
+      border-color: var(--tomato);
+      color: #fff;
+    }
+
+    .shop-tab-content {
+      display: none;
+    }
+
+    .shop-tab-content.active {
+      display: block;
+    }
+
+    .shop-default-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 1rem;
+      margin-bottom: 0.85rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.18s;
+      font-family: var(--font-mono);
+      width: 100%;
+    }
+
+    .shop-default-btn:hover {
+      border-color: var(--tomato);
+      color: var(--text);
+    }
+
+    .shop-default-btn.is-active {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    /* ── Plan Pomodoro IA Display ── */
+    .plan-content {
+      animation: slideIn 0.3s ease;
+    }
+
+    .plan-header {
+      font-family: var(--font-head);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--tomato);
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .plan-line {
+      margin-bottom: 0.8rem;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .task-line {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .tip-line {
+      color: var(--green);
+      font-style: italic;
+    }
+
+    .total-line {
+      font-weight: 700;
+      margin-top: 1rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--border);
+      color: var(--tomato);
+    }
+
+    /* ── Modal selector de tareas para Plan ────────── */
+    .plan-task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      max-height: 45vh;
+      overflow-y: auto;
+      margin-bottom: 1rem;
+    }
+
+    .plan-task-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .plan-task-item:hover {
+      border-color: var(--tomato);
+    }
+
+    .plan-task-item.selected {
+      border-color: var(--green);
+      background: rgba(62, 207, 122, 0.07);
+    }
+
+    .plan-task-item .ptask-check {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      font-size: 11px;
+    }
+
+    .plan-task-item.selected .ptask-check {
+      background: var(--green);
+      border-color: var(--green);
+      color: #0e0e10;
+      font-weight: 700;
+    }
+
+    .plan-task-item .ptask-title {
+      font-family: var(--font-head);
+      font-size: 0.82rem;
+      font-weight: 600;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .plan-task-item .ptask-meta {
+      font-size: 0.65rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .plan-select-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .plan-sel-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 0.25rem 0.7rem;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .plan-sel-btn:hover {
+      border-color: var(--tomato);
+      color: var(--text);
+    }
+
+    /* ── Cronómetro Pomodoro ────────────────────────── */
+    .pomo-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem 1.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 640px;
+      /* Altura fija alineada con Plan IA */
+    }
+
+    .pomo-tabs {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .pomo-tab {
+      flex: 1;
+      background: transparent;
+      border: 2px solid var(--border);
+      color: var(--muted);
+      border-radius: 12px;
+      padding: 0.8rem 0.5rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      cursor: default;
+      transition: all 0.2s;
+      text-align: center;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .pomo-tab:nth-child(1) {
+      border-color: var(--pomo-work);
+      color: var(--pomo-work);
+    }
+
+    .pomo-tab:nth-child(2) {
+      border-color: var(--pomo-short);
+      color: var(--pomo-short);
+    }
+
+    .pomo-tab:nth-child(3) {
+      border-color: var(--pomo-long);
+      color: var(--pomo-long);
+    }
+
+    .pomo-tab.active {
+      opacity: 1;
+      border-color: var(--pomo-current-color, var(--tomato));
+      box-shadow: 0 0 6px var(--pomo-current-color, var(--tomato)), 0 0 15px color-mix(in srgb, var(--pomo-current-color, var(--tomato)) 40%, transparent);
+      border-width: 3px;
+    }
+
+    .pomo-clock {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .pomo-ring {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      flex-shrink: 0;
+    }
+
+    .pomo-ring svg {
+      transform: rotate(-90deg);
+    }
+
+    .pomo-ring-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 8;
+    }
+
+    .pomo-ring-fill {
+      fill: none;
+      stroke: var(--tomato);
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear, stroke 0.4s;
+    }
+
+    .pomo-time {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pomo-time-digits {
+      font-family: var(--font-head);
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+    }
+
+    .pomo-time-label {
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .pomo-controls {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      width: 100%;
+    }
+
+    /* ── Indicador de Momentos ── */
+    .pomo-moments {
+      display: flex;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+      width: 100%;
+    }
+
+    .moment-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      position: relative;
+    }
+
+    .moment-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: transparent;
+      transition: background 0.3s;
+    }
+
+    .moment-item.active .moment-dot {
+      background: var(--pomo-current-color, var(--tomato));
+      box-shadow: 0 0 4px var(--pomo-current-color, var(--tomato)), 0 0 10px var(--pomo-current-color, var(--tomato)), 0 0 20px var(--pomo-current-color, var(--tomato)), 0 0 40px var(--pomo-current-color, var(--tomato)), 0 0 80px var(--pomo-current-color, var(--tomato));
+      animation: momentDotLift 1.8s ease-in-out infinite;
+    }
+
+    @keyframes momentDotLift {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-3px);
+      }
+    }
+
+    .moment-rect {
+      width: 34px;
+      height: 40px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .moment-item.active .moment-rect {
+      border-color: var(--pomo-current-color, var(--tomato));
+      transform: translateY(-2px);
+      background: color-mix(in srgb, var(--pomo-current-color, var(--tomato)) 25%, transparent);
+      box-shadow: 0 0 15px var(--pomo-current-color, var(--tomato)), 0 0 30px color-mix(in srgb, var(--pomo-current-color, var(--tomato)) 25%, transparent);
+    }
+
+    .moment-rect img,
+    .moment-rect span {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      font-size: 1.1rem;
+    }
+
+    .pomo-msg-box {
+      margin-top: 0.8rem;
+      padding: 0.7rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+      min-height: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.4;
+    }
+
+    .pomo-msg-box.alert {
+      color: var(--tomato);
+      border-color: var(--tomato);
+      background: rgba(255, 77, 46, 0.05);
+    }
+
+    .pomo-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 0.45rem 1.1rem;
+      font-family: var(--font-head);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .pomo-btn.primary {
+      background: var(--tomato);
+      border-color: var(--tomato);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--tomato-glow);
+    }
+
+    .pomo-btn.primary:hover {
+      filter: brightness(1.15);
+    }
+
+    .pomo-btn:hover {
+      border-color: var(--tomato);
+    }
+
+    .pomo-task-link {
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+
+
+    .pomo-msg-box {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      min-height: 3.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.4;
+    }
+
+    .pomo-msg-box.alert {
+      color: var(--tomato);
+      border-color: var(--tomato);
+      background: rgba(255, 77, 46, 0.05);
+    }
+
+    .pomo-task-select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 0.45rem 0.75rem;
+      outline: none;
+    }
+
+    .pomo-task-select:focus {
+      border-color: var(--tomato);
+    }
+
+    .pomo-progress-row {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .pomo-progress-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .pomo-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .pomo-progress-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 999px;
+      transition: width 1s linear;
+    }
+
+    .pomo-counter {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .pomo-counter span {
+      color: var(--tomato);
+      font-weight: 700;
+    }
+
+    @keyframes ring-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 var(--tomato-glow)
+      }
+
+      50% {
+        box-shadow: 0 0 0 8px transparent
+      }
+    }
+
+    @media (max-width:768px) {
+      .pomo-ring {
+        width: 110px;
+        height: 110px;
+      }
+
+      .pomo-time-digits {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* ── Tomates en tarea (igual estilo que tag-cat) ── */
+    .tag-tomates,
+    .tag-recur {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      cursor: default;
+      position: relative;
+    }
+
+    body:not(.theme-default) .tag-recur {
+      background: var(--tomato-glow);
+      color: var(--tomato);
+      border-color: var(--tomato-glow);
+    }
+
+    .tag-tomates:hover::after,
+    .tag-recur:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.68rem;
+      color: var(--text);
+      white-space: nowrap;
+      z-index: 2000;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+
+    /* Wrapper mejorado para el tag de recurrencia (igual que info-icon-wrapper) */
+    .tag-recur-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .tag-recur-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(calc(-50% + var(--tt-x, 0px))) translateY(5px);
+      background: var(--surface);
+      border: 1px solid var(--tomato);
+      color: var(--text);
+      padding: 0.6rem 0.85rem;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      min-width: 180px;
+      max-width: 400px;
+      width: max-content;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      line-height: 1.6;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.2s;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), 0 0 12px var(--tomato-glow);
+      z-index: 99999;
+      font-family: var(--font-mono);
+      white-space: normal;
+      text-align: left;
+    }
+
+    .tag-recur-wrapper:hover .tag-recur-tooltip {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(calc(-50% + var(--tt-x, 0px))) translateY(0);
+    }
+
+    .tag-recur-wrapper.info-up .tag-recur-tooltip {
+      top: auto;
+      bottom: calc(100% + 8px);
+      transform: translateX(calc(-50% + var(--tt-x, 0px))) translateY(-5px);
+    }
+
+    .tag-recur-wrapper.info-up:hover .tag-recur-tooltip {
+      transform: translateX(calc(-50% + var(--tt-x, 0px))) translateY(0);
+    }
+
+    .tag-recur-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(calc(-50% - var(--tt-x, 0px)));
+      border: 6px solid transparent;
+      border-top-color: var(--tomato);
+    }
+
+
+    /* ── Tareas recurrentes ─────────────────────────── */
+    .recurring-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      user-select: none;
+      transition: border-color 0.18s;
+      margin-top: 0.4rem;
+    }
+
+    .recurring-header:hover {
+      border-color: var(--tomato);
+      color: var(--text);
+    }
+
+    .recurring-header .rh-arrow {
+      transition: transform 0.2s;
+    }
+
+    .recurring-header.open .rh-arrow {
+      transform: rotate(180deg);
+    }
+
+    .recurring-done-list {
+      display: none;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.4rem 0 0;
+    }
+
+    .recurring-done-list.open {
+      display: flex;
+    }
+
+    .task-item.recurring-done .task-check,
+    .task-item.recurring-done .title-text,
+    .task-item.recurring-done .tag-recur {
+      opacity: 0.45;
+    }
+
+    /* Tooltips en recurring-done ya no heredan opacidad reducida */
+
+
+    .task-item.recurring-done .task-body {
+      overflow: visible;
+    }
+
+    .task-item.recurring-done .task-title {
+      overflow: visible;
+    }
+
+    .task-item.recurring-done .task-title {
+      text-decoration: line-through;
+    }
+
+    /* ── Modal recurrencia ──────────────────────────── */
+    .recur-days {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0;
+    }
+
+    .recur-day {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .recur-day.selected {
+      background: var(--tomato);
+      border-color: var(--tomato);
+      color: #fff;
+    }
+
+    .recur-info {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      line-height: 1.5;
+    }
+
+    /* ── v1.4: Ajustes de scroll y tooltip ──────────── */
+    .tasks-scroll-area {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+      padding-right: 4px;
+      margin-top: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.1);
+      position: relative;
+    }
+
+    .task-item.dragging {
+      opacity: 0.4;
+      border: 2px dashed var(--tomato);
+      transform: scale(0.98);
+      background: var(--surface);
+    }
+
+    .task-item.drag-over {
+      position: relative;
+    }
+
+    .task-item.drag-over::before {
+      content: '';
+      position: absolute;
+      top: -8.25px;
+      /* Posicionado entre el margen de las tareas */
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: #fff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+      z-index: 100;
+    }
+
+    /* Efecto de borde simple para tareas afectadas por el desplazamiento */
+    .task-item.affected-up {
+      border-top: 4px solid var(--tomato);
+    }
+
+    .task-item.affected-down {
+      border-bottom: 4px solid var(--tomato);
+    }
+
+    .tasks-scroll-area::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .tasks-scroll-area:not(:hover)::-webkit-scrollbar-thumb {
+      background: transparent;
+    }
+
+    .info-icon-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      margin-left: 6px;
+      vertical-align: middle;
+      cursor: pointer;
+      /* Cambiado de help a pointer */
+    }
+
+    .info-icon {
+      width: 16px;
+      height: 16px;
+      background-image: url('Imagenes/informacion.png');
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      cursor: pointer;
+      /* Cambiado de help a pointer */
+      opacity: 0.8;
+      transition: all 0.22s;
+      margin-top: -1px;
+      /* Ajuste para evitar corte al escalar/subir */
+    }
+
+    .info-icon-wrapper:hover .info-icon {
+      opacity: 1;
+      transform: scale(1.18);
+      filter: drop-shadow(0 0 6px var(--tomato-glow));
+    }
+
+    .info-tooltip {
+      position: absolute;
+      top: 25px;
+      right: 50%;
+      transform: translateX(calc(50% + var(--tt-x, 0px))) translateY(5px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.6rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      min-width: 180px;
+      max-width: 400px;
+      width: max-content;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      line-height: 1.6;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.2s;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+      z-index: 99999;
+      /* Máxima prioridad para no ser tapado */
+      font-family: var(--font-mono);
+      text-transform: none;
+      letter-spacing: normal;
+      white-space: normal;
+      text-align: left;
+      max-height: 250px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .info-icon-wrapper:hover .info-tooltip {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(calc(50% + var(--tt-x, 0px))) translateY(0);
+    }
+
+    /* Clase especial para abrir el tooltip hacia arriba si no hay espacio abajo */
+    .info-icon-wrapper.info-up .info-tooltip {
+      top: auto;
+      bottom: 25px;
+      transform: translateX(calc(50% + var(--tt-x, 0px))) translateY(-5px);
+    }
+
+    .info-icon-wrapper.info-up:hover .info-tooltip {
+      transform: translateX(calc(50% + var(--tt-x, 0px))) translateY(0);
+    }
+
+    .info-tooltip::after {
+      content: '';
+      position: absolute;
+      bottom: 100%;
+      right: 50%;
+      transform: translateX(calc(50% - var(--tt-x, 0px)));
+      border: 6px solid transparent;
+      border-bottom-color: var(--border);
+    }
+
+    .info-icon-wrapper.info-up .info-tooltip::after {
+      bottom: auto;
+      top: 100%;
+      border-bottom-color: transparent;
+      border-top-color: var(--border);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">
+      <span class="logo-tomato" id="logo-icon-img"><img src="Imagenes/Tomate_rojo.webp"
+          style="width:22px;vertical-align:middle;"></span>
+      <span>AD-<span>lante</span></span>
+    </div>
+    <div class="header-center">
+      <div class="counter-badge tomates" id="badge-tomates"
+        title="Tomates ganados al completar tareas. Límite 750/día.">
+        🍅 <span class="c-val" id="counter-tomates">1000</span> Tomates
+      </div>
+      <div class="counter-badge oro" id="badge-oro" title="Tomates de diamante disponibles. Se recargan a 50 cada día.">
+        <img src="Imagenes/Tomate_de_dimante.webp" alt="Diamante"
+          style="width:18px;vertical-align:middle;margin-right:2px;">
+        <span class="c-val" id="counter-oro">50</span> Tomates de diamante
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-header" onclick="openHistorial()">📜 Historial</button>
+      <button class="btn-header" onclick="openHuerta()">🌿 Huerta</button>
+      <div class="badge-today" id="dateDisplay"></div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- ── Columna izquierda: formulario + cronómetro ── -->
+    <div class="col-left">
+
+      <div class="panel">
+        <div class="panel-title">➕ Nueva tarea</div>
+        <label for="inp-bulk-text">✨ Agregar con IA (texto natural)</label>
+        <textarea id="inp-bulk-text" rows="3"
+          placeholder="Agrega tareas mediante texto... (ej. 'Hoy debo ir a la uni, comprar pan y estudiar')"></textarea>
+        <span class="bulk-hint">Si hay texto aquí, la IA lo convierte en tareas automáticamente al pulsar "+ Agregar
+          tarea". Consume un <img src="Imagenes/Tomate_de_dimante.webp"
+            style="width:14px;vertical-align:middle;"></span>
+        <div class="bulk-divider"><span>o agrega manualmente</span></div>
+        <label>Tarea *</label>
+        <input type="text" id="inp-title" placeholder="¿Qué hay que hacer?" />
+        <label>Descripción</label>
+        <textarea id="inp-desc" placeholder="Detalles opcionales..."></textarea>
+        <div class="row-2 row-group">
+          <div>
+            <label>Tiempo estimado (min)</label>
+            <input type="number" id="inp-time" placeholder="45" min="5" />
+          </div>
+          <div>
+            <label>Prioridad</label>
+            <select id="inp-priority">
+              <option value="1">🔴 Crítico</option>
+              <option value="2" selected>🟡 Alto</option>
+              <option value="3">🟢 Medio</option>
+              <option value="4">⚪ Bajo</option>
+            </select>
+          </div>
+        </div>
+        <div class="row-2 row-2-asymmetric row-group">
+          <div>
+            <label>Fecha</label>
+            <input type="datetime-local" id="inp-deadline" />
+          </div>
+          <div>
+            <label>Categoría</label>
+            <select id="inp-category">
+              <option value="Trabajo">Trabajo</option>
+              <option value="Salud">Salud</option>
+              <option value="Familia">Familia</option>
+              <option value="Hackathon">Hackathon</option>
+              <option value="Comunicación">Comunicación</option>
+              <option value="Vida personal">Vida personal</option>
+              <option value="Educación">Educación</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" id="btn-add-task" onclick="addTask()">+ Agregar tarea</button>
+        <button class="btn-plan" onclick="generatePlan()">
+          <span class="btn-plan-tooltip">Consume un Tomate de diamante <img src="Imagenes/Tomate_de_dimante.webp"
+              style="width:16px;vertical-align:middle;margin-left:2px;"></span>
+          <img src="Imagenes/Tomate_rojo.webp" id="btn-plan-icon"
+            style="width:18px;vertical-align:middle;margin-right:4px;"> Generar Plan Pomodoro con IA
+        </button>
+      </div>
+
+      <!-- Cronómetro Pomodoro — siempre al fondo de col-left -->
+      <div class="pomo-panel">
+        <div class="panel-title" style="margin-bottom:0">⏱ Cronómetro Pomodoro</div>
+        <div class="pomo-tabs">
+          <button class="pomo-tab active" onclick="setPomoMode('work',this)">
+            🍅<br />⇕<br />Trabajo 25 min
+          </button>
+          <button class="pomo-tab" onclick="setPomoMode('short',this)">
+            ☕<br />⇕<br />Descanso 5 min
+          </button>
+          <button class="pomo-tab" onclick="setPomoMode('long',this)">
+            🌿<br />⇕<br />Largo 15 min
+          </button>
+        </div>
+        <div class="pomo-clock">
+          <div class="pomo-ring">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <circle class="pomo-ring-bg" cx="70" cy="70" r="58" />
+              <circle class="pomo-ring-fill" id="pomoRingFill" cx="70" cy="70" r="58" stroke-dasharray="364.4"
+                stroke-dashoffset="0" />
+            </svg>
+            <div class="pomo-time">
+              <span class="pomo-time-digits" id="pomoTimeDisplay">25:00</span>
+              <span class="pomo-time-label" id="pomoModeLabel">TRABAJO</span>
+            </div>
+          </div>
+
+          <!-- Indicador de Momentos -->
+          <div class="pomo-moments" id="pomoMoments"></div>
+
+          <div class="pomo-controls">
+            <button class="pomo-btn" onclick="resetPomo()">↺</button>
+            <button class="pomo-btn primary" id="pomoStartBtn" onclick="togglePomo()">▶ Iniciar</button>
+            <button class="pomo-btn" onclick="skipPomo()" title="Saltar momento">⏭</button>
+          </div>
+        </div>
+        <div class="pomo-msg-box" id="pomoMsgBox">
+          Pulsa iniciar para comenzar. ¡Vamos! 🚀
+        </div>
+        <div class="pomo-task-link">
+          <select class="pomo-task-select" id="pomoTaskSelect" onchange="onPomoTaskChange()">
+            <option value="">— Genera un plan primero —</option>
+          </select>
+        </div>
+        <div class="pomo-progress-row" id="pomoProgressRow" style="display:none">
+          <div class="pomo-progress-label">
+            <span>Progreso de tarea</span>
+            <span id="pomoProgressPct">0%</span>
+          </div>
+          <div class="pomo-progress-bar">
+            <div class="pomo-progress-fill" id="pomoProgressFill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="pomo-counter">
+          Pomodoros completados hoy: <span id="pomoDoneCount">0</span>
+        </div>
+      </div>
+
+    </div><!-- /col-left -->
+
+    <!-- ── Columna derecha: tareas + plan ── -->
+    <div class="col-right">
+      <div class="right-col">
+
+        <div class="panel">
+          <div class="tasks-header">
+            <div class="panel-title" style="margin-bottom:0">📋 Tareas pendientes</div>
+            <div class="task-count">Total: <span id="taskCountNum">0</span></div>
+          </div>
+          <div class="tasks-scroll-area">
+            <div class="tasks-list" id="tasksList">
+              <div class="empty-state">
+                <div class="big">🔄</div>
+                <p>Conectando con Supabase...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="plan-panel" id="planPanel">
+          <div class="panel-title"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.4rem;">
+            <span>🤖 Plan Pomodoro IA</span>
+            <div class="plan-history-btn" onclick="togglePlanHistory()" title="Ver historial de planes">
+              🗃️ Historial de Planes Pomodoro
+            </div>
+          </div>
+          <div class="plan-scroll-area">
+            <div class="plan-placeholder" id="planPlaceholder">
+              <div class="icon" id="plan-placeholder-icon">
+                <img src="Imagenes/Tomate_rojo.webp" style="width:48px;height:48px;opacity:0.6;">
+              </div>
+              <p>Agrega tus tareas y pulsa <strong>"Generar Plan Pomodoro"</strong> para que la IA arme tu día perfecto.
+              </p>
+            </div>
+            <div id="planOutput" style="display:none"></div>
+
+            <!-- Historial de Planes (Estructura visual parecida a recurrentes) -->
+            <div id="planHistorySection" style="margin-top: 3rem; display: none; padding-bottom: 1rem;">
+              <div class="recurring-header"
+                onclick="document.getElementById('planHistoryList').classList.toggle('open'); this.classList.toggle('open')">
+                🗃️ Historial de planes realizados
+                <span class="rh-arrow" style="margin-left:auto">▼</span>
+              </div>
+              <div class="recurring-done-list" id="planHistoryList">
+                <div class="empty-state"
+                  style="padding: 1.5rem; border: 1px dashed var(--border); border-radius: 8px; margin-top: 0.5rem; background: rgba(255,255,255,0.02);">
+                  <p style="font-size: 0.72rem; opacity: 0.6;">No hay planes guardados recientemente.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /right-col -->
+    </div><!-- /col-right -->
+
+  </div><!-- /container -->
+
+  <div id="toast"></div>
+
+  <!-- MODAL: Edición de Tareas -->
+  <div id="editModal" class="modal-overlay" style="display:none" onclick="closeEditModalOnOverlay(event)">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <span class="modal-title">✏️ Modificar tarea</span>
+        <button class="modal-close" onclick="closeEditModal()">✕ cerrar</button>
+      </div>
+      <input type="hidden" id="edit-id" />
+      <label>Tarea *</label>
+      <input type="text" id="edit-title" placeholder="¿Qué hay que hacer?" />
+      <label>Descripción</label>
+      <textarea id="edit-desc" placeholder="Detalles opcionales..."></textarea>
+      <div class="row-2 row-group">
+        <div>
+          <label>Tiempo estimado (min)</label>
+          <input type="number" id="edit-time" placeholder="45" min="5" />
+        </div>
+        <div>
+          <label>Prioridad</label>
+          <select id="edit-priority">
+            <option value="1">🔴 Crítico</option>
+            <option value="2">🟡 Alto</option>
+            <option value="3">🟢 Medio</option>
+            <option value="4">⚪ Bajo</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2 row-2-asymmetric row-group">
+        <div>
+          <label>Fecha</label>
+          <input type="datetime-local" id="edit-deadline" />
+        </div>
+        <div>
+          <label>Categoría</label>
+          <select id="edit-category">
+            <option value="Trabajo">Trabajo</option>
+            <option value="Salud">Salud</option>
+            <option value="Familia">Familia</option>
+            <option value="Hackathon">Hackathon</option>
+            <option value="Comunicación">Comunicación</option>
+            <option value="Vida personal">Vida personal</option>
+            <option value="Educación">Educación</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-save" id="btn-save-edit" onclick="saveEditTask()">
+        <img src="Imagenes/Tomate_guardar.webp" alt="Save"
+          style="width:18px;vertical-align:middle;margin-right:6px;filter:brightness(2);"> Guardar cambios
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL Historial -->
+  <div id="historialModal" class="modal-overlay" style="display:none"
+    onclick="closeModalOverlay(event,'historialModal')">
+    <div class="modal-panel wide">
+      <div class="modal-header">
+        <span class="modal-title">📜 Historial — últimas 50 completadas</span>
+        <button class="modal-close" onclick="closeModal('historialModal')">✕ cerrar</button>
+      </div>
+      <div id="historialList" class="history-list">
+        <div class="history-empty">🔄 Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL Huerta / Tienda -->
+  <div id="huertaModal" class="modal-overlay" style="display:none" onclick="closeModalOverlay(event,'huertaModal')">
+    <div class="modal-panel wide">
+      <div class="modal-header">
+        <span class="modal-title">🌿 Huerta — Tienda de recompensas</span>
+        <button class="modal-close" onclick="closeModal('huertaModal')">✕ cerrar</button>
+      </div>
+      <div class="shop-tomates-bar">
+        🍅 Tienes <strong id="shop-tomates-count">0</strong> tomates disponibles
+      </div>
+      <div class="shop-tabs">
+        <button class="shop-tab active" onclick="switchShopTab('temas',this)">🎨 Temas</button>
+        <button class="shop-tab" onclick="switchShopTab('fondos',this)">🖼 Fondos</button>
+      </div>
+      <div id="shopTab-temas" class="shop-tab-content active">
+        <button class="shop-default-btn" id="shop-default-btn" onclick="applyTheme('default')">
+          ⬜ Por defecto <span style="margin-left:auto;font-size:0.65rem" id="shop-default-label"></span>
+        </button>
+        <div class="shop-grid" id="shopGridTemas"></div>
+      </div>
+      <div id="shopTab-fondos" class="shop-tab-content">
+        <button class="shop-default-btn" id="shop-bg-default-btn" onclick="applyBg('none')">
+          ⬜ Sin fondo <span style="margin-left:auto;font-size:0.65rem" id="shop-bg-default-label"></span>
+        </button>
+        <div class="shop-grid" id="shopGridFondos"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL Selector plan Pomodoro -->
+  <div id="planSelectorModal" class="modal-overlay" style="display:none"
+    onclick="closeModalOverlay(event,'planSelectorModal')">
+    <div class="modal-panel wide">
+      <div class="modal-header">
+        <span class="modal-title">🍅 Seleccionar tareas para el plan</span>
+        <button class="modal-close" onclick="closeModal('planSelectorModal')">✕ cerrar</button>
+      </div>
+      <div class="plan-select-actions">
+        <button class="plan-sel-btn" onclick="selectAllPlanTasks(true)">✓ Todas</button>
+        <button class="plan-sel-btn" onclick="selectAllPlanTasks(false)">✗ Ninguna</button>
+      </div>
+      <div class="plan-task-list" id="planTaskList"></div>
+      <button class="btn-primary" style="margin-top:0" onclick="confirmPlanSelection()">🍅 Generar Plan con IA</button>
+    </div>
+  </div>
+
+  <!-- MODAL Tarea Recurrente -->
+  <div id="recurModal" class="modal-overlay" style="display:none" onclick="closeModalOverlay(event,'recurModal')">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <span class="modal-title">🔁 Tarea recurrente</span>
+        <button class="modal-close" onclick="closeModal('recurModal')">✕ cerrar</button>
+      </div>
+      <input type="hidden" id="recur-task-id" />
+      <p class="recur-info">Selecciona los días de la semana en que esta tarea estará disponible automáticamente.</p>
+      <div class="recur-days">
+        <span class="recur-day" data-day="1">Lun</span>
+        <span class="recur-day" data-day="2">Mar</span>
+        <span class="recur-day" data-day="3">Mié</span>
+        <span class="recur-day" data-day="4">Jue</span>
+        <span class="recur-day" data-day="5">Vie</span>
+        <span class="recur-day" data-day="6">Sáb</span>
+        <span class="recur-day" data-day="0">Dom</span>
+      </div>
+      <button class="btn-save" onclick="saveRecurrence()">
+        <img src="Imagenes/Tomate_guardar.webp" alt="Save"
+          style="width:18px;vertical-align:middle;margin-right:6px;filter:brightness(2);"> Guardar recurrencia
+      </button>
+      <script>
+        // ════════════════════════════════════════════════════════════════════
+        // SUPABASE — CAMBIOS NECESARIOS EN DB PARA v1.2
+        // ════════════════════════════════════════════════════════════════════
+        //
+        // ── 1. TABLA user_profiles ──────────────────────────────────────────
+        // Ejecutar en Supabase Dashboard → SQL Editor:
+        //
+        // CREATE TABLE IF NOT EXISTS public.user_profiles (
+        //   id                  uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        //   user_id             uuid UNIQUE,        -- NULL sin auth; FK a auth.users con auth
+        //   tomates             int  DEFAULT 1000,
+        //   tomates_hoy         int  DEFAULT 0,     -- Tomates ganados hoy (límite 750/día)
+        //   tomates_last_reset  date DEFAULT CURRENT_DATE,
+        //   oro                 int  DEFAULT 15,
+        //   oro_last_reset      date DEFAULT CURRENT_DATE,
+        //   theme               text DEFAULT 'default',
+        //   owned_items         text[] DEFAULT '{}'
+        // );
+        //
+        // -- Insertar fila anónima inicial (sin auth):
+        // INSERT INTO public.user_profiles (user_id)
+        // VALUES (NULL) ON CONFLICT DO NOTHING;
+        //
+        // ── 2. COLUMNAS EXTRAS en tasks (si no existen) ──────────────────
+        //
+        // ALTER TABLE public.tasks
+        //   ADD COLUMN IF NOT EXISTS description text,
+        //   ADD COLUMN IF NOT EXISTS completed_at timestamptz,
+        //   ADD COLUMN IF NOT EXISTS sort_order float DEFAULT 0;
+        //
+        // ── 3. CRON JOB — borrar tareas completadas > 15 días ───────────────
+        // En Supabase Dashboard → Database → Extensions → habilitar pg_cron
+        // Luego en SQL Editor:
+        //
+        // SELECT cron.schedule(
+        //   'delete-old-completed-tasks',
+        //   '0 3 * * *',          -- Cada día a las 3am UTC
+        //   $$ DELETE FROM public.tasks
+        //      WHERE completed = true
+        //      AND completed_at < now() - interval '15 days'; $$
+        // );
+        //
+        // -- Para verificar: SELECT * FROM cron.job;
+        // -- Para cancelar:  SELECT cron.unschedule('delete-old-completed-tasks');
+        //
+        // ── 4. RLS (Row Level Security) — opcional sin auth ─────────────────
+        // Sin autenticación no es necesario, pero si se agrega auth:
+        // ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+        // CREATE POLICY "own profile" ON public.user_profiles
+        //   USING (user_id = auth.uid());
+        //
+        // ════════════════════════════════════════════════════════════════════
+
+        const SUPABASE_URL = 'https://bpnrnzlkzajqwpnakkea.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbnJuemxremFqcXdwbmFra2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDM5OTUsImV4cCI6MjA4NjUxOTk5NX0.hI3JqpqPYRP4Gu4MlnYFrMTTpd5eB1dZP1sXNqArXD0';
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ── Groq API Key ─────────────────────────────────
+        // La API key vive en Netlify Environment Variables (GROQ_API_KEY)
+        // El browser llama al proxy /.netlify/functions/groq-proxy, nunca directo a Groq
+        const GROQ_PROXY_URL = '/.netlify/functions/groq-proxy';
+
+        // ── v1.2: Estado global de contadores ───────────────────────────────
+        let profileId = null;
+        let tomates = 1000;
+        let tomatesToday = 0;
+        let oro = 50;
+        let activeTheme = 'default';
+        let activeBg = 'none';    // Fondo activo
+
+        // ── v1.2: Catálogo de la Huerta ─────────────────────────────────────
+        // Temas de color
+        const SHOP_ITEMS = [
+          { id: 'tema_rojo', icon: 'Imagenes/Tomate_rojo.webp', name: 'Tema Rojo', desc: 'Acento rojo vibrante', price: 1000, themeClass: 'theme-rojo' },
+          { id: 'tema_azul', icon: 'Imagenes/Tomate_azul.webp', name: 'Tema Azul', desc: 'Azul eléctrico y moderno', price: 1000, themeClass: 'theme-azul' },
+          { id: 'tema_verde', icon: 'Imagenes/Tomate_verde.webp', name: 'Tema Verde', desc: 'Verde bosque relajante', price: 1000, themeClass: 'theme-verde' },
+          { id: 'tema_oro', icon: 'Imagenes/Tomate_dorado.webp', name: 'Tema Dorado', desc: 'Estética premium en dorado', price: 1000, themeClass: 'theme-oro' },
+          { id: 'tema_rosa', icon: 'Imagenes/Tomate_rosa.webp', name: 'Tema Rosa', desc: 'Suave y con estilo propio', price: 1000, themeClass: 'theme-rosa' },
+          { id: 'tema_morado', icon: 'Imagenes/Tomate_morado.webp', name: 'Tema Morado', desc: 'Púrpura oscuro y creativo', price: 1000, themeClass: 'theme-morado' },
+        ];
+
+        // Fondos / texturas
+        const BG_ITEMS = [
+          { id: 'bg-diagonales', icon: '╱', name: 'Líneas diagonales', desc: 'Patrón diagonal sutil', price: 1000, bgClass: 'bg-diagonales' },
+          { id: 'bg-puntos', icon: '·', name: 'Puntos', desc: 'Cuadrícula de puntos', price: 1000, bgClass: 'bg-puntos' },
+          { id: 'bg-cuadros', icon: '⊞', name: 'Cuadrícula', desc: 'Líneas en rejilla', price: 1000, bgClass: 'bg-cuadros' },
+          { id: 'bg-hexagons', icon: '⬡', name: 'Hexágonos', desc: 'Patrón hexagonal', price: 1000, bgClass: 'bg-hexagons' },
+          { id: 'bg-circuito', icon: '⊡', name: 'Circuito', desc: 'Estética tech / circuito', price: 1000, bgClass: 'bg-circuito' },
+          { id: 'bg-ondas', icon: '◎', name: 'Ondas', desc: 'Ondas radiales concéntricas', price: 1000, bgClass: 'bg-ondas' },
+        ];
+
+        const now = new Date();
+        document.getElementById('dateDisplay').textContent =
+          now.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+
+        function updateDayProgress() {
+          const d = new Date();
+          const secondsPassed = (d.getHours() * 3600) + (d.getMinutes() * 60) + d.getSeconds();
+          const totalSeconds = 24 * 3600;
+          const progress = (secondsPassed / totalSeconds) * 100;
+          document.getElementById('dateDisplay').style.setProperty('--day-p', `${progress.toFixed(2)}%`);
+        }
+        updateDayProgress();
+        setInterval(updateDayProgress, 30000); // Actualiza cada 30 segundos
+
+        // ── Realtime subscription ────────────────────────
+        db.channel('tasks-realtime-v14')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks' }, () => loadTasks())
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, () => loadTasks())
+          .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks' }, () => loadTasks())
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') console.log('✅ Realtime conectado');
+          });
+
+        function toast(msg, type = 'success') {
+          const el = document.getElementById('toast');
+          el.textContent = msg;
+          el.className = 'show ' + type;
+          setTimeout(() => { el.className = ''; }, 3200);
+        }
+
+        function escHtml(str) {
+          return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function clampProgress(value) {
+          const parsed = parseInt(value, 10);
+          if (Number.isNaN(parsed)) return 0;
+          return Math.max(0, Math.min(100, parsed));
+        }
+
+        // ── Load tasks ───────────────────────────────────
+        async function loadTasks() {
+          const nowTime = new Date();
+          const { data, error } = await db
+            .from('tasks')
+            .select('*')
+            .eq('completed', false)
+            // .eq('user_id', currentUserId)  // TODO: auth
+            .order('sort_order', { ascending: true })
+            .order('priority', { ascending: true })
+            .order('created_at', { ascending: false })
+            .limit(40);
+
+          const list = document.getElementById('tasksList');
+
+          if (error) {
+            list.innerHTML = `<div class="empty-state"><div class="big">⚠️</div><p>Error: ${escHtml(error.message)}</p></div>`;
+            return;
+          }
+
+          document.getElementById('taskCountNum').textContent = data.length;
+
+          if (!data.length) {
+            list.innerHTML = `<div class="empty-state"><div class="big">✅</div><p>No hay tareas pendientes.<br/>¡Agrega tu primera tarea!</p></div>`;
+            return;
+          }
+
+          list.innerHTML = data.map(t => {
+            const prioTag = { 1: '🔴', 2: '🟡', 3: '🟢', 4: '⚪' }[t.priority] || '⚪';
+            const prioClass = `tag-p${Math.min(t.priority, 3)}`;
+            const prioLabel = { 1: 'Crítico', 2: 'Alto', 3: 'Medio', 4: 'Bajo' }[t.priority] || 'Bajo';
+            // ── Deadline con emojis de urgencia, sin barra líquida ─────────
+            let deadlineHTML = '';
+            if (t.deadline) {
+              const dl = new Date(t.deadline);
+              const diffMs = dl - nowTime;
+              const diffH = diffMs / 3600000;
+              const diffMin = diffMs / 60000;
+              let urgEmoji = '', dlClass = 'dl-ok';
+              let isExpired = diffMs < 0;
+              let tooltipText = '';
+
+              if (isExpired) {
+                urgEmoji = '🔥'; dlClass = 'dl-venc';
+                tooltipText = "Ya se cumplió el tiempo límite de esta tarea";
+              } else {
+                if (diffMin <= 30) { urgEmoji = '‼️'; dlClass = 'dl-fire'; }
+                else if (diffH <= 1) { urgEmoji = '❗'; dlClass = 'dl-crit'; }
+                else if (diffH <= 3) { urgEmoji = '⚠️⚠️⚠️'; dlClass = 'dl-soon3'; }
+                else if (diffH <= 4) { urgEmoji = '⚠️⚠️'; dlClass = 'dl-soon2'; }
+                else if (diffH <= 5) { urgEmoji = '⚠️'; dlClass = 'dl-soon1'; }
+                else if (diffH <= 12) { urgEmoji = '⚠️'; dlClass = 'dl-soon1'; }
+                else { urgEmoji = '❇️'; dlClass = 'dl-ok'; }
+
+                // Calcular tiempo restante legible
+                const rH = Math.floor(diffH);
+                const rM = Math.floor(diffMin % 60);
+                const rD = Math.floor(diffH / 24);
+                if (rD > 0) tooltipText = `Faltan ${rD}d ${rH % 24}h para llegar a la fecha límite`;
+                else if (rH > 0) tooltipText = `Faltan ${rH}h ${rM}m para llegar a la fecha límite`;
+                else tooltipText = `Faltan ${rM}m para llegar a la fecha límite`;
+              }
+
+              const styleAttr = isExpired ? 'style="text-decoration: line-through; opacity: 0.7;"' : '';
+              deadlineHTML = `<span class="tag task-deadline ${dlClass}" ${styleAttr} title="${tooltipText}">📅 ${dl.toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} ${urgEmoji}</span>`;
+            }
+            const timeHTML = t.estimated_time ? `<span class="tag tag-pomo">⏱ ${t.estimated_time}min</span>` : '';
+            // 🍅×N — solo pomodoros (quitar tag duplicado de tomates ganables)
+            // 🍅×N unificado: tooltip de tomates + estilo de tag-cat
+            const pomosHTML = t.pomodoros_estimated
+              ? `<span class="tag tag-tomates" data-tip="Completar esta tarea te dará ${t.pomodoros_estimated} 🍅 tomates">🍅×${t.pomodoros_estimated}</span>`
+              : '';
+
+            const recurTagHTML = (t.recur_days && t.recur_days.length > 0)
+              ? (() => {
+                const daysMap = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+                // Ordenar días para que el tooltip salga en orden lógico
+                const sortedDays = [...t.recur_days].sort((a, b) => a - b);
+                const daysStr = sortedDays.map(d => daysMap[d]).join(', ');
+                return `<span class="tag tag-recur" data-tip="Se repite: ${daysStr}">🔁 Tarea recurrente</span>`;
+              })()
+              : '';
+            const progressValue = clampProgress(t.progress);
+            const showProgress = !!t.show_progress;
+
+            const progressHTML = showProgress ? `
+        <div class="progress-row">
+          <input
+            type="range" min="0" max="100" value="${progressValue}"
+            class="progress-range" style="--p:${progressValue}%"
+            oninput="updateProgressPreview('${t.id}', this)"
+            onchange="saveProgress('${t.id}', this)"
+            aria-label="Progreso"
+          />
+          <span class="progress-value" id="progress-label-${t.id}">${progressValue}%</span>
+        </div>` : '';
+            return `
+        <div class="task-item" id="task-${t.id}" 
+             ondragover="handleDragOver(event, this)" 
+             ondragleave="this.classList.remove('drag-over')" 
+             ondrop="handleDrop(event, '${t.id}')" 
+             ondragend="handleDragEnd(this)">
+          <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, '${t.id}')" title="Arrastrar para reordenar">
+            <div style="letter-spacing:-1px">⠿</div>
+          </div>
+          <div class="task-check" onclick="toggleTask('${t.id}', false)"></div>
+          <div class="task-body">
+            <div class="task-title">
+              <span class="title-text">${escHtml(t.title)}</span>
+              ${t.description ? `
+                <div class="info-icon-wrapper" onmouseenter="adjustInfoTooltip(this)">
+                  <div class="info-icon"></div>
+                  <div class="info-tooltip">${escHtml(t.description)}</div>
+                </div>` : ''}
+            </div>
+            <div class="task-meta">
+              <span class="tag ${prioClass}">${prioTag} ${prioLabel}</span>
+              ${t.category ? `<span class="tag tag-cat">${escHtml(t.category)}</span>` : ''}
+              ${timeHTML}${pomosHTML}${recurTagHTML}${deadlineHTML}
+            </div>
+            ${progressHTML}
+          </div>
+            <!-- BOTONES DE ACCIÓN EN CADA TAREA -->
+            <div class="task-menu" id="task-menu-${t.id}">
+              <!-- Botón para abrir el menú de opciones (···) -->
+              <button class="task-menu-btn" onclick="toggleMenu('${t.id}')" aria-label="Opciones">···</button>
+              <div class="task-menu-dropdown">
+                <!-- Botón para alternar la visibilidad de la barra de progreso -->
+                <button class="task-menu-item" onclick="toggleProgressVisibility('${t.id}', ${showProgress ? 'false' : 'true'})">${showProgress ? 'Ocultar progreso' : 'Mostrar progreso'}</button>
+                <!-- Botón para abrir el modal de edición de la tarea -->
+                <button class="task-menu-item edit" onclick="editTask('${t.id}')">✏️Editar</button>
+                <button class="task-menu-item" onclick="openRecurModalById('${t.id}')">🔁 Tarea recurrente</button>
+                <button class="task-menu-item danger" onclick="deleteTask('${t.id}')">Eliminar</button>
+              </div>
+            </div>
+          </div>`;
+          }).join('');
+
+          // Tareas recurrentes completadas hoy
+          const todayDow = new Date().getDay();
+          const todayISO = new Date().toISOString().slice(0, 10);
+          const { data: recurDone } = await db
+            .from('tasks').select('*').eq('completed', true)
+            .contains('recur_days', [todayDow])
+            .gte('completed_at', todayISO);
+
+          if (recurDone && recurDone.length > 0) {
+            const daysMap = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+            const recurHTML = recurDone.map(t => {
+              // Preparar tag de recurrencia con wrapper de tooltip mejorado
+              const sortedDays = [...(t.recur_days || [])].sort((a, b) => a - b);
+              const daysStr = sortedDays.map(d => daysMap[d]).join(' · ');
+              const recurTag = `
+                <div class="tag-recur-wrapper" onmouseenter="adjustInfoTooltip(this)">
+                  <span class="tag tag-recur">🔁 Tarea recurrente</span>
+                  <div class="tag-recur-tooltip">
+                    <strong style="color: var(--tomato);">🔁 Se repite:</strong><br>
+                    ${daysStr}
+                  </div>
+                </div>`;
+
+              return `
+          <div class="task-item recurring-done" id="task-rec-${t.id}">
+            <div class="task-check checked"></div>
+            <div class="task-body" style="overflow:visible">
+              <div class="task-title" style="overflow:visible">
+                <span class="title-text">${escHtml(t.title)}</span>
+                ${t.description ? `
+                  <div class="info-icon-wrapper" onmouseenter="adjustInfoTooltip(this)">
+                    <div class="info-icon"></div>
+                    <div class="info-tooltip">${escHtml(t.description)}</div>
+                  </div>` : ''}
+              </div>
+              <div class="task-meta" style="overflow:visible">${recurTag}</div>
+            </div>
+          </div>`;
+            }).join('');
+
+            list.innerHTML += `
+          <div class="recurring-header" onclick="toggleRecurDone(this)">
+            🔁 Tareas recurrentes completadas hoy (${recurDone.length})
+            <span class="rh-arrow" style="margin-left:auto">▼</span>
+          </div>
+          <div class="recurring-done-list" id="recurDoneList">${recurHTML}</div>`;
+          }
+          maybeRefreshPomoSelect();
+        }
+        function toggleRecurDone(hdr) {
+          hdr.classList.toggle('open');
+          const lst = document.getElementById('recurDoneList');
+          if (lst) lst.classList.toggle('open');
+        }
+
+        function togglePlanHistory() {
+          const section = document.getElementById('planHistorySection');
+          if (section) {
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+          }
+        }
+
+        // ── Drag and Drop Handlers ───────────────────────
+        let _draggedTaskId = null;
+        let _startIdx = -1;
+
+        function handleDragStart(e, id) {
+          _draggedTaskId = id;
+          const el = document.getElementById(`task-${id}`);
+          el.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+
+          const items = [...document.querySelectorAll('#tasksList .task-item')];
+          _startIdx = items.indexOf(el);
+        }
+
+        function handleDragOver(e, el) {
+          e.preventDefault();
+          if (el.id === `task-${_draggedTaskId}`) return;
+
+          e.dataTransfer.dropEffect = 'move';
+          el.classList.add('drag-over');
+
+          // Calcular rango de afectados
+          const items = [...document.querySelectorAll('#tasksList .task-item')];
+          const currIdx = items.indexOf(el);
+
+          items.forEach((item, idx) => {
+            item.classList.remove('affected-up', 'affected-down');
+            if (_startIdx < currIdx) {
+              // Arrastrando hacia abajo
+              if (idx > _startIdx && idx <= currIdx) item.classList.add('affected-up');
+            } else if (_startIdx > currIdx) {
+              // Arrastrando hacia arriba
+              if (idx < _startIdx && idx >= currIdx) item.classList.add('affected-down');
+            }
+          });
+        }
+
+        function handleDragEnd(el) {
+          el.classList.remove('dragging');
+          document.querySelectorAll('.task-item').forEach(i => {
+            i.classList.remove('drag-over', 'affected-up', 'affected-down');
+          });
+        }
+
+        async function handleDrop(e, targetId) {
+          e.preventDefault();
+          if (_draggedTaskId === targetId) return;
+
+          const list = document.getElementById('tasksList');
+          const draggedEl = document.getElementById(`task-${_draggedTaskId}`);
+          const targetEl = document.getElementById(`task-${targetId}`);
+
+          if (draggedEl && targetEl) {
+            const allItems = [...list.querySelectorAll('.task-item')];
+            const draggedIdx = allItems.indexOf(draggedEl);
+            const targetIdx = allItems.indexOf(targetEl);
+            if (draggedIdx < targetIdx) targetEl.after(draggedEl);
+            else targetEl.before(draggedEl);
+
+            // Animación de "Pop" al soltar
+            draggedEl.classList.remove('task-pop');
+            void draggedEl.offsetWidth; // Trigger reflow
+            draggedEl.classList.add('task-pop');
+            setTimeout(() => draggedEl.classList.remove('task-pop'), 900);
+          }
+
+          // Persistir orden
+          const allItems = [...document.querySelectorAll('#tasksList .task-item')];
+          const updates = allItems.map((el, index) => {
+            const id = el.id.replace('task-', '');
+            if (!id.includes('rec-')) {
+              return db.from('tasks').update({ sort_order: index }).eq('id', id);
+            }
+          }).filter(u => u);
+
+          await Promise.all(updates);
+        }
+
+        async function appendWithSortOrder(newTasks) {
+          const { data: dbTasks } = await db.from('tasks')
+            .select('sort_order, priority')
+            .eq('completed', false)
+            .order('sort_order', { ascending: true })
+            .order('priority', { ascending: true });
+
+          let currentTasks = dbTasks || [];
+
+          newTasks.forEach(newTask => {
+            let insertIdx = -1;
+            for (let i = 0; i < currentTasks.length; i++) {
+              if (currentTasks[i].priority <= newTask.priority) {
+                insertIdx = i; // Última tarea encontrada con prioridad igual o más importante (números más bajos=más importantes)
+              }
+            }
+
+            let newSort = 0;
+            if (insertIdx === -1) {
+              // No había nada de igual/mayor urgencia, va al inicio
+              newSort = currentTasks.length > 0 ? (currentTasks[0].sort_order || 0) - 1 : newTask.priority * 1000;
+            } else {
+              const lastSort = currentTasks[insertIdx].sort_order || 0;
+              if (insertIdx === currentTasks.length - 1) {
+                // Estaba al puro final
+                newSort = lastSort + 1;
+              } else {
+                // Entre su grupo de prioridad y la primera tarea de una prioridad menor
+                const nextSort = currentTasks[insertIdx + 1].sort_order || 0;
+                newSort = (lastSort + nextSort) / 2;
+              }
+            }
+
+            newTask.sort_order = newSort;
+            currentTasks.splice(insertIdx + 1, 0, { priority: newTask.priority, sort_order: newSort });
+          });
+        }
+
+        // ── Add task (single or bulk via IA) ─────────────
+        async function addTask() {
+          const bulkText = document.getElementById('inp-bulk-text').value.trim();
+
+          if (bulkText) {
+            await addTasksBulk(bulkText);
+            return;
+          }
+
+          // Fallback: single task manual
+          const title = document.getElementById('inp-title').value.trim();
+          if (!title) { toast('Escribe el nombre de la tarea 📝', 'error'); return; }
+
+          const time = parseInt(document.getElementById('inp-time').value) || null;
+          const deadline = document.getElementById('inp-deadline').value || null;
+          const priority = parseInt(document.getElementById('inp-priority').value);
+          const category = document.getElementById('inp-category').value;
+          const desc = document.getElementById('inp-desc').value.trim() || null;
+          const getPomos = (t, p) => {
+            const base = Math.max(1, (t || 15));
+            const weights = { 1: 2.5, 2: 2.0, 3: 1.25, 4: 1.0 };
+            return Math.ceil(base * (weights[p] || 1));
+          };
+
+          const pomos = getPomos(time, priority);
+
+          const rowsToInsert = [{
+            title, description: desc,
+            estimated_time: time,
+            deadline: deadline ? new Date(deadline).toISOString() : null,
+            priority, category,
+            pomodoros_estimated: pomos,
+            progress: 0,
+            show_progress: false,
+            completed: false
+          }];
+
+          await appendWithSortOrder(rowsToInsert);
+
+          const { error } = await db.from('tasks').insert(rowsToInsert);
+
+          if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+
+          toast('¡Tarea agregada! 🍅');
+          ['inp-title', 'inp-desc', 'inp-time', 'inp-deadline'].forEach(id => document.getElementById(id).value = '');
+          await loadTasks();
+        }
+
+        // ── Bulk text → tasks via Claude ─────────────────
+        async function addTasksBulk(text) {
+          const btn = document.getElementById('btn-add-task');
+          btn.disabled = true;
+          btn.textContent = '✨ Procesando con IA...';
+
+          const today = new Date();
+          const todayISO = today.toISOString().split('T')[0];
+          const todayStr = today.toLocaleDateString('es-CO', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+          });
+
+          const systemPrompt = `Eres un parser de tareas. Recibes texto en lenguaje natural y devuelves ÚNICAMENTE un JSON array válido. Sin texto extra, sin markdown, sin comillas de código, sin explicaciones. Solo el array JSON crudo.`;
+
+          const userPrompt = `Fecha actual: ${todayStr} (${todayISO}). Zona horaria: America/Bogota (UTC-5).
+
+Extrae cada actividad/tarea del texto y devuelve un JSON array con objetos que tengan exactamente estas claves:
+- title (string, máx 60 chars): nombre corto y claro de la tarea
+- description (string o null): detalle extra si lo hay
+- estimated_time (entero, minutos): estima según tipo — compras ~30, universidad/clase ~90, estudio ~60, trámites ~45, ejercicio ~45, cocinar ~30, transporte ~20
+- deadline (string ISO 8601): si menciona hora exacta úsala; si dice "hoy" o no especifica usa ${todayISO}T22:00:00-05:00
+- priority (entero 1-4): 1=Crítico (deadline hoy+urgente), 2=Alto, 3=Medio, 4=Bajo
+- category (string): uno de "Trabajo", "Salud", "Familia", "Educación", "Comunicación", "Vida personal", "Hackathon", "Otro"
+- pomodoros_estimated (entero): cálculo exacto: ceil(estimated_time / 15) multiplicado por el peso de prioridad (Crítico x2.5, Alto x2, Medio x1.25, Bajo x1). Mínimo 1.
+
+Texto del usuario: "${text}"
+
+Responde SOLO con el JSON array. Ejemplo:
+[{"title":"Ir a la universidad","description":"asistir a una monitoria","estimated_time":90,"deadline":"${todayISO}T08:00:00-05:00","priority":2,"category":"Educación","pomodoros_estimated":4}]`;
+
+          // v1.2: Verificar y gastar 1 oro IA
+          const canUseIA = await spendOro();
+          if (!canUseIA) {
+            btn.disabled = false; btn.textContent = '+ Agregar tarea'; return;
+          }
+
+          try {
+            console.log('[AD-lante] Llamando proxy Groq para parsear tareas...');
+
+            const res = await fetch(GROQ_PROXY_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'llama-3.1-8b-instant',
+                systemPrompt,
+                userPrompt
+              })
+            });
+
+            const json = await res.json();
+            console.log('[AD-lante] Respuesta proxy:', json);
+
+            if (!res.ok || json.error) {
+              const errMsg = json?.error || `HTTP ${res.status}`;
+              console.error('[AD-lante] Error de proxy:', errMsg);
+              toast(`❌ Error: ${errMsg}`, 'error');
+              return;
+            }
+
+            const rawText = json?.choices?.[0]?.message?.content || '';
+            console.log('[AD-lante] Texto crudo de Groq:', rawText);
+
+            if (!rawText) {
+              toast('❌ La IA devolvió una respuesta vacía.', 'error');
+              return;
+            }
+
+            // Limpiar posibles code fences y espacios
+            const clean = rawText
+              .replace(/```json\s*/gi, '')
+              .replace(/```\s*/g, '')
+              .trim();
+
+            // Intentar extraer JSON array aunque haya texto extra antes/después
+            const arrayMatch = clean.match(/\[[\s\S]*\]/);
+            const jsonStr = arrayMatch ? arrayMatch[0] : clean;
+
+            let tasks;
+            try {
+              tasks = JSON.parse(jsonStr);
+            } catch (parseErr) {
+              console.error('[AD-lante] JSON.parse falló:', parseErr, '\nTexto limpio:', jsonStr);
+              toast(`❌ JSON inválido de la IA. Ver consola (F12) para detalles.`, 'error');
+              return;
+            }
+
+            if (!Array.isArray(tasks) || !tasks.length) {
+              toast('⚠️ No se encontraron tareas en el texto. Intenta ser más específico.', 'error');
+              return;
+            }
+
+            // Sanitizar y preparar para insertar
+            const getPomos = (t, p) => {
+              const base = Math.max(1, (t || 15));
+              const weights = { 1: 2.5, 2: 2.0, 3: 1.25, 4: 1.0 };
+              return Math.ceil(base * (weights[p] || 1));
+            };
+
+            const rows = tasks.map(t => {
+              const p = Math.min(Math.max(parseInt(t.priority) || 3, 1), 4);
+              const et = parseInt(t.estimated_time) || null;
+              return {
+                title: String(t.title || 'Sin título').slice(0, 200),
+                description: t.description || null,
+                estimated_time: et,
+                deadline: t.deadline || null,
+                priority: p,
+                category: t.category || 'Otro',
+                pomodoros_estimated: getPomos(et, p),
+                progress: 0,
+                show_progress: false,
+                completed: false
+              };
+            });
+
+            await appendWithSortOrder(rows);
+            console.log('[AD-lante] Insertando tareas:', rows);
+
+            const { error: insertError } = await db.from('tasks').insert(rows);
+            if (insertError) {
+              toast('❌ Error al guardar en Supabase: ' + insertError.message, 'error');
+              return;
+            }
+
+            document.getElementById('inp-bulk-text').value = '';
+            toast(`✅ ${rows.length} tarea(s) agregadas con IA 🍅`);
+            await loadTasks();
+
+          } catch (e) {
+            console.error('[AD-lante] Error inesperado:', e);
+            toast('❌ Error inesperado: ' + e.message, 'error');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = '+ Agregar tarea';
+          }
+        }
+
+        // ── Toggle task complete (v1.2: suma tomates) ───────────────
+        async function toggleTask(id) {
+          // Obtener pomodoros de la tarea antes de completarla
+          const { data: taskData } = await db.from('tasks').select('pomodoros_estimated').eq('id', id).single();
+          const pomos = taskData?.pomodoros_estimated ?? 1;
+
+          const { error } = await db.from('tasks')
+            .update({ completed: true, completed_at: new Date().toISOString(), progress: 100 })
+            .eq('id', id);
+
+          if (error) { toast('Error al actualizar', 'error'); return; }
+
+          // v1.2: Sumar tomates (limitado a 200/día)
+          await earnTomates(pomos);
+          toast(`✅ ¡Completada! +${pomos} 🍅 ganados`);
+          await loadTasks();
+        }
+
+        // ── Progress ─────────────────────────────────────
+        function updateProgressPreview(id, el) {
+          const value = clampProgress(el.value);
+          el.value = value;
+          el.style.setProperty('--p', `${value}%`);
+          const label = document.getElementById(`progress-label-${id}`);
+          if (label) label.textContent = `${value}%`;
+        }
+
+        async function saveProgress(id, el) {
+          const value = clampProgress(el.value);
+          updateProgressPreview(id, el);
+
+          if (value >= 100) {
+            // Obtener pomodoros antes de completar
+            const { data: td } = await db.from('tasks').select('pomodoros_estimated').eq('id', id).single();
+            const pomos = td?.pomodoros_estimated ?? 1;
+
+            const { error } = await db.from('tasks')
+              .update({ progress: 100, completed: true, completed_at: new Date().toISOString() })
+              .eq('id', id);
+            if (error) { toast('Error al completar', 'error'); return; }
+
+            // v1.2: Sumar tomates
+            await earnTomates(pomos);
+            toast(`✅ ¡Completada! +${pomos} 🍅 ganados`);
+            await loadTasks();
+            return;
+          }
+
+          const { error } = await db.from('tasks').update({ progress: value }).eq('id', id);
+          if (error) { toast('Error al actualizar progreso', 'error'); return; }
+          toast('Progreso actualizado');
+        }
+
+        // ── Delete task ──────────────────────────────────
+        async function deleteTask(id) {
+          const { error } = await db.from('tasks').delete().eq('id', id);
+          if (error) { toast('Error al eliminar', 'error'); return; }
+          toast('Tarea eliminada 🗑️');
+          await loadTasks();
+        }
+
+        // ── Menu helpers ─────────────────────────────────
+        function closeAllMenus() {
+          document.querySelectorAll('.task-menu.open').forEach(menu => menu.classList.remove('open'));
+        }
+
+        function toggleMenu(id) {
+          const menu = document.getElementById(`task-menu-${id}`);
+          const scrollArea = menu.closest('.tasks-scroll-area');
+          if (!menu || !scrollArea) return;
+
+          const isOpen = menu.classList.contains('open');
+          closeAllMenus();
+
+          if (!isOpen) {
+            // Detectar si el menú está cerca del borde inferior del área de scroll
+            const menuRect = menu.getBoundingClientRect();
+            const scrollRect = scrollArea.getBoundingClientRect();
+            const spaceBelow = scrollRect.bottom - menuRect.bottom;
+
+            // Si hay menos de 180px abajo, abrir hacia arriba
+            if (spaceBelow < 180) {
+              menu.classList.add('open-up');
+            } else {
+              menu.classList.remove('open-up');
+            }
+
+            menu.classList.add('open');
+          }
+        }
+
+        // v1.2: Ajustar posición del tooltip de descripción para que no se corte vertical u horizontalmente
+        function adjustInfoTooltip(wrapper) {
+          const scrollArea = wrapper.closest('.tasks-scroll-area');
+          if (!scrollArea) return;
+          const wrapperRect = wrapper.getBoundingClientRect();
+          const scrollRect = scrollArea.getBoundingClientRect();
+          const spaceBelow = scrollRect.bottom - wrapperRect.bottom;
+
+          const tooltip = wrapper.querySelector('.info-tooltip') || wrapper.querySelector('.tag-recur-tooltip');
+          // Calculamos la altura real requerida del tooltip. Si no existe asume máximo 260px.
+          const reqHeight = tooltip ? tooltip.offsetHeight + 15 : 260;
+
+          if (spaceBelow < reqHeight) {
+            wrapper.classList.add('info-up');
+          } else {
+            wrapper.classList.remove('info-up');
+          }
+
+          // Ajuste horizontal resuelto puramente con geometría estática
+          if (tooltip) {
+            const ttWidth = tooltip.offsetWidth;
+            const wrapperCenter = wrapperRect.left + (wrapperRect.width / 2);
+            const naturalLeft = wrapperCenter - (ttWidth / 2);
+
+            let offsetX = 0;
+            // Solo se mueve hacia la derecha si choca con el lado izquierdo
+            if (naturalLeft < scrollRect.left + 10) {
+              offsetX = (scrollRect.left + 10) - naturalLeft;
+            }
+            wrapper.style.setProperty('--tt-x', `${offsetX}px`);
+          }
+        }
+
+        async function toggleProgressVisibility(id, show) {
+          closeAllMenus();
+          const { error } = await db.from('tasks').update({ show_progress: show }).eq('id', id);
+          if (error) { toast('Error al actualizar', 'error'); return; }
+          await loadTasks();
+        }
+
+        // ── Edit task modal ──────────────────────────────
+        async function editTask(id) {
+          closeAllMenus();
+
+          const { data, error } = await db.from('tasks').select('*').eq('id', id).single();
+          if (error || !data) { toast('No se pudo cargar la tarea', 'error'); return; }
+
+          document.getElementById('edit-id').value = data.id;
+          document.getElementById('edit-title').value = data.title || '';
+          document.getElementById('edit-desc').value = data.description || '';
+          document.getElementById('edit-time').value = data.estimated_time || '';
+          document.getElementById('edit-priority').value = data.priority || 3;
+          document.getElementById('edit-category').value = data.category || 'Otro';
+
+          if (data.deadline) {
+            // Convert ISO to local datetime-local format
+            const d = new Date(data.deadline);
+            const pad = n => String(n).padStart(2, '0');
+            const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            document.getElementById('edit-deadline').value = local;
+          } else {
+            document.getElementById('edit-deadline').value = '';
+          }
+
+          document.getElementById('editModal').style.display = 'flex';
+        }
+
+        async function saveEditTask() {
+          const id = document.getElementById('edit-id').value;
+          const title = document.getElementById('edit-title').value.trim();
+          if (!title) { toast('El nombre de la tarea es obligatorio 📝', 'error'); return; }
+
+          const time = parseInt(document.getElementById('edit-time').value) || null;
+          const deadline = document.getElementById('edit-deadline').value || null;
+          const priority = parseInt(document.getElementById('edit-priority').value);
+          const category = document.getElementById('edit-category').value;
+          const desc = document.getElementById('edit-desc').value.trim() || null;
+          const getPomos = (t, p) => {
+            const base = Math.max(1, (t || 15));
+            const weights = { 1: 2.5, 2: 2.0, 3: 1.25, 4: 1.0 };
+            return Math.ceil(base * (weights[p] || 1));
+          };
+
+          const pomos = getPomos(time, priority);
+
+          const btn = document.getElementById('btn-save-edit');
+          btn.disabled = true;
+          btn.textContent = 'Guardando...';
+
+          const { error } = await db.from('tasks').update({
+            title, description: desc,
+            estimated_time: time,
+            deadline: deadline ? new Date(deadline).toISOString() : null,
+            priority, category,
+            pomodoros_estimated: pomos
+          }).eq('id', id);
+
+          btn.disabled = false;
+          btn.innerHTML = '<img src="Imagenes/Tomate_guardar.webp" style="width:18px;vertical-align:middle;margin-right:6px;filter:brightness(2);"> Guardar cambios';
+
+          if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+
+          toast('Tarea actualizada ✅');
+          closeEditModal();
+          await loadTasks();
+        }
+
+        function closeEditModal() {
+          document.getElementById('editModal').style.display = 'none';
+        }
+
+        function closeEditModalOnOverlay(event) {
+          if (event.target === document.getElementById('editModal')) closeEditModal();
+        }
+
+        // ── Generate Pomodoro Plan — v1.3: con selector previo ─────────────
+        let _planTasksAll = []; // tareas disponibles para el plan
+
+        async function generatePlan() {
+          const { data, error } = await db
+            .from('tasks')
+            .select('id, title, estimated_time, deadline, priority, category, pomodoros_estimated')
+            .eq('completed', false)
+            .order('priority')
+            .limit(40);
+
+          if (error || !data || !data.length) {
+            toast('No hay tareas pendientes para planificar 📋', 'error'); return;
+          }
+
+          _planTasksAll = data;
+          const list = document.getElementById('planTaskList');
+
+          // Renderizar selector — todas seleccionadas por defecto
+          list.innerHTML = data.map(t => {
+            const prio = { 1: '🔴', 2: '🟡', 3: '🟢', 4: '⚪' }[t.priority] || '⚪';
+            const pomos = t.pomodoros_estimated ? `🍅×${t.pomodoros_estimated}` : '';
+            const time = t.estimated_time ? `${t.estimated_time}min` : '';
+            return `<div class="plan-task-item selected" data-id="${t.id}" onclick="togglePlanTask(this)">
+          <div class="ptask-check">✓</div>
+          <div class="ptask-title">${escHtml(t.title)}</div>
+          <div class="ptask-meta">${prio} ${time} ${pomos}</div>
+        </div>`;
+          }).join('');
+
+          document.getElementById('planSelectorModal').style.display = 'flex';
+        }
+
+        function togglePlanTask(el) {
+          el.classList.toggle('selected');
+          const chk = el.querySelector('.ptask-check');
+          chk.textContent = el.classList.contains('selected') ? '✓' : '';
+        }
+
+        function selectAllPlanTasks(val) {
+          document.querySelectorAll('.plan-task-item').forEach(el => {
+            el.classList.toggle('selected', val);
+            el.querySelector('.ptask-check').textContent = val ? '✓' : '';
+          });
+        }
+
+        async function confirmPlanSelection() {
+          const selectedIds = new Set(
+            [...document.querySelectorAll('.plan-task-item.selected')].map(el => el.dataset.id)
+          );
+          const selected = _planTasksAll.filter(t => selectedIds.has(t.id));
+
+          if (!selected.length) { toast('Selecciona al menos una tarea', 'error'); return; }
+
+          closeModal('planSelectorModal');
+          _planSelectedForPomo = selected;
+          refreshPomoTaskSelect(selected);
+          const placeholder = document.getElementById('planPlaceholder');
+          const output = document.getElementById('planOutput');
+          placeholder.style.display = 'none';
+          output.style.display = 'block';
+          output.innerHTML = `<div class="plan-loading"><div class="spinner"></div><span>Armando tu plan Pomodoro perfecto...</span></div>`;
+
+          // Gastar 1 oro IA
+          const canPlan = await spendOro();
+          if (!canPlan) {
+            output.innerHTML = `<div class="plan-placeholder"><div class="icon">✨</div><p>Sin oro IA disponible. Espera al día siguiente.</p></div>`;
+            return;
+          }
+
+          const taskList = selected.map(t => {
+            const dl = t.deadline ? ` | Deadline: ${new Date(t.deadline).toLocaleString('es-CO')}` : '';
+            const time = t.estimated_time ? ` | ~${t.estimated_time}min` : '';
+            const cat = t.category ? ` | ${t.category}` : '';
+            const prio = { 1: '🔴 Crítico', 2: '🟡 Alto', 3: '🟢 Medio', 4: '⚪ Bajo' }[t.priority] || '';
+            return `- ${t.title}${time}${dl}${cat} [${prio}]`;
+          }).join('\n');
+
+          const todayStr = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+          const prompt = `Eres un coach de productividad implacable que combina priorización extrema con la técnica Pomodoro.
+
+Reglas Pomodoro:
+- 1 pomodoro = 25 min de trabajo concentrado en UNA tarea
+- Descanso 5 min tras cada pomodoro
+- Pausa larga 15-30 min cada 4 pomodoros
+- Tareas >4 pomodoros: romper en sub-tareas
+- Tareas <25 min: agrupar en un pomodoro
+
+Priorización (orden estricto): 1. Deadlines hoy/mañana 2. Impacto alto 3. Dependencias 4. Quick wins 5. Máx 8-12 pomodoros/día
+
+Fecha hoy: ${todayStr}. Usuario en Bogotá, Colombia.
+
+FORMATO OBLIGATORIO (solo esto, sin texto extra):
+Plan Pomodoro para hoy:
+1. [Tarea] – X pomodoros (Y-Z min) – Razón corta
+   - Sugerencia: [consejo práctico]
+Tiempo total estimado: ~W pomodoros (≈ total min trabajo + descansos)
+Consejo Pomodoro del día: [1-2 frases motivadoras]
+
+Lista de tareas:
+${taskList}`;
+
+          try {
+            const res = await fetch(GROQ_PROXY_URL, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ model: 'llama-3.3-70b-versatile', userPrompt: prompt })
+            });
+            const json = await res.json();
+            const text = json?.choices?.[0]?.message?.content || 'No se pudo generar el plan.';
+            renderPlan(text);
+          } catch (e) {
+            output.innerHTML = `<div style="color:var(--tomato);font-size:0.82rem;">Error: ${escHtml(e.message)}</div>`;
+          }
+        }
+
+        function renderPlan(text) {
+          const output = document.getElementById('planOutput');
+          const lines = text.split('\n');
+          let html = '';
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t) { html += '<br/>'; continue; }
+            if (t.startsWith('Plan Pomodoro')) {
+              html += `<div class="plan-header">${escHtml(t)}</div>`;
+            } else if (/^\d+\./.test(t)) {
+              html += `<div class="plan-line task-line">${escHtml(t)}</div>`;
+            } else if (t.startsWith('Consejo Pomodoro')) {
+              html += `<div class="plan-line tip-line">💡 ${escHtml(t)}</div>`;
+            } else if (t.startsWith('Tiempo total')) {
+              html += `<div class="plan-line total-line">⏱ ${escHtml(t)}</div>`;
+            } else {
+              html += `<div class="plan-line" style="padding-left:1rem;color:var(--muted)">${escHtml(t)}</div>`;
+            }
+          }
+          output.innerHTML = `<div class="plan-content">${html}</div>`;
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // v1.2: PERFIL — Cargar / crear contadores desde Supabase
+        // ════════════════════════════════════════════════════════════════════
+        async function loadProfile() {
+          // Sin auth: usamos la fila donde user_id IS NULL.
+          // Con auth en el futuro: .eq('user_id', supaCurrentUserId)
+          const { data, error } = await db
+            .from('user_profiles')
+            .select('*')
+            .is('user_id', null)
+            .limit(1)
+            .single();
+
+          const today = new Date().toISOString().slice(0, 10);
+
+          if (error || !data) {
+            // Primera vez: crear fila de perfil
+            const { data: np, error: ce } = await db
+              .from('user_profiles')
+              .insert([{ user_id: null, tomates: 1000, tomates_hoy: 0, tomates_last_reset: today, oro: 50, oro_last_reset: today }])
+              .select().single();
+
+            if (ce) {
+              // Fallback a localStorage si Supabase falla (tabla aún no creada)
+              console.warn('[AD-lante] user_profiles no disponible, usando localStorage:', ce.message);
+              tomates = parseInt(localStorage.getItem('adt_tomates') ?? '1000');
+              tomatesToday = parseInt(localStorage.getItem('adt_tom_hoy') ?? '0');
+              oro = parseInt(localStorage.getItem('adt_oro') ?? '50');
+              const lastResetOro = localStorage.getItem('adt_oro_reset') ?? '';
+              if (lastResetOro !== today) {
+                oro = 50; tomatesToday = 0;
+                localStorage.setItem('adt_oro', '50');
+                localStorage.setItem('adt_oro_reset', today);
+                localStorage.setItem('adt_tom_hoy', '0');
+              }
+            } else {
+              profileId = np.id; tomates = np.tomates; tomatesToday = np.tomates_hoy ?? 0; oro = np.oro;
+            }
+          } else {
+            profileId = data.id; tomates = data.tomates; tomatesToday = data.tomates_hoy ?? 0; oro = data.oro;
+
+            // Reset de oro si cambió el día
+            if ((data.oro_last_reset ?? '').slice(0, 10) !== today) {
+              oro = 50; tomatesToday = 0;
+              await db.from('user_profiles')
+                .update({ oro: 50, oro_last_reset: today, tomates_hoy: 0, tomates_last_reset: today })
+                .eq('id', profileId);
+            } else if ((data.tomates_last_reset ?? '').slice(0, 10) !== today) {
+              // Día cambió solo para reset de tomates_hoy (edge case)
+              tomatesToday = 0;
+              await db.from('user_profiles')
+                .update({ tomates_hoy: 0, tomates_last_reset: today })
+                .eq('id', profileId);
+            }
+          }
+          // Restaurar tema y fondo guardados
+          const savedTheme = profileId
+            ? (data?.theme ?? 'default')
+            : (localStorage.getItem('adt_theme') ?? 'default');
+          if (savedTheme && savedTheme !== 'default') applyTheme(savedTheme);
+
+          const savedBg = localStorage.getItem('adt_bg') ?? 'none';
+          if (savedBg && savedBg !== 'none') applyBg(savedBg);
+
+          renderCounters();
+          renderMoments();
+          updatePomoTabs();
+          updateThemeIcons();
+        }
+
+        // ── Renderizar contadores en el header ──────────────────────────────
+        function renderCounters() {
+          document.getElementById('counter-tomates').textContent = tomates;
+          document.getElementById('counter-oro').textContent = oro;
+        }
+
+        // ── Ganar tomates al completar tarea ────────────────────────────────
+        async function earnTomates(pomodoros) {
+          const limit = 750;
+          const gain = Math.max(0, Math.min(pomodoros, limit - tomatesToday)); // Limita al cupo diario
+          if (gain <= 0) { toast('🍅 Límite diario de 750 tomates alcanzado'); return; }
+
+          tomates += gain;
+          tomatesToday += gain;
+          renderCounters();
+
+          // Animación bump
+          const badge = document.getElementById('badge-tomates');
+          badge.classList.remove('bump');
+          void badge.offsetWidth;
+          badge.classList.add('bump');
+
+          // Persistir en Supabase
+          if (profileId) {
+            await db.from('user_profiles')
+              .update({ tomates, tomates_hoy: tomatesToday })
+              .eq('id', profileId);
+          } else {
+            localStorage.setItem('adt_tomates', tomates);
+            localStorage.setItem('adt_tom_hoy', tomatesToday);
+          }
+        }
+
+        // ── Gastar 1 oro IA ─────────────────────────────────────────────────
+        async function spendOro() {
+          if (oro <= 0) {
+            toast('✨ Sin Tomates de diamante — se recarga mañana (o compra +10 en la Huerta 🌿)', 'error');
+            return false;
+          }
+          oro--;
+          renderCounters();
+          if (profileId) {
+            await db.from('user_profiles').update({ oro }).eq('id', profileId);
+          } else {
+            localStorage.setItem('adt_oro', oro);
+          }
+          return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // v1.2: HISTORIAL — Modal con tareas completadas
+        // ════════════════════════════════════════════════════════════════════
+        async function openHistorial() {
+          document.getElementById('historialModal').style.display = 'flex';
+          const list = document.getElementById('historialList');
+          list.innerHTML = '<div class="history-empty">🔄 Cargando...</div>';
+
+          const { data, error } = await db
+            .from('tasks')
+            .select('id, title, category, pomodoros_estimated, completed_at, priority')
+            .eq('completed', true)
+            .order('completed_at', { ascending: false })
+            .limit(50);
+
+          if (error) {
+            list.innerHTML = `<div class="history-empty">⚠️ Error: ${escHtml(error.message)}</div>`;
+            return;
+          }
+          if (!data || !data.length) {
+            list.innerHTML = '<div class="history-empty">🏁 Aún no has completado ninguna tarea.<br/>¡Completa tu primera tarea!</div>';
+            return;
+          }
+
+          list.innerHTML = data.map(t => {
+            const cat = t.category ? `<span>${escHtml(t.category)}</span>` : '';
+            const pomo = t.pomodoros_estimated ? `<span class="h-pomo">🍅×${t.pomodoros_estimated}</span>` : '';
+            const date = t.completed_at
+              ? `<span class="h-date">✅ ${new Date(t.completed_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>`
+              : '';
+            return `
+        <div class="history-item">
+          <span class="h-check">✓</span>
+          <div class="h-body">
+            <div class="h-title">${escHtml(t.title)}</div>
+            <div class="h-meta">${pomo}${cat}${date}</div>
+          </div>
+        </div>`;
+          }).join('');
+        }
+
+
+        // ── Aplicar tema de color ───────────────────────────────────────────
+        function applyTheme(themeId) {
+          document.body.className = document.body.className.replace(/theme-\S+/g, '').trim();
+          if (themeId && themeId !== 'default') {
+            const item = SHOP_ITEMS.find(i => i.id === themeId);
+            if (item?.themeClass) document.body.classList.add(item.themeClass);
+          }
+          activeTheme = themeId;
+          if (profileId) db.from('user_profiles').update({ theme: themeId }).eq('id', profileId);
+          else localStorage.setItem('adt_theme', themeId);
+          refreshShopThemeButtons();
+          renderMoments();
+          updatePomoTabs();
+          updateThemeIcons();
+        }
+
+        function updateThemeIcons() {
+          const icon = getThemeTomate();
+          const logoIcon = document.getElementById('logo-icon-img');
+          const planIcon = document.getElementById('btn-plan-icon');
+          const placeholderIcon = document.getElementById('plan-placeholder-icon');
+
+          const isImg = icon.includes('Imagenes/');
+          const html = isImg ? `<img src="${icon}" style="width:22px;vertical-align:middle;">` : `<span style="font-size:1.2rem;">${icon}</span>`;
+          if (logoIcon) logoIcon.innerHTML = html;
+
+          if (planIcon) {
+            planIcon.outerHTML = `<img src="Imagenes/Tomate_de_dimante.webp" id="btn-plan-icon" style="width:18px;vertical-align:middle;margin-right:4px;">`;
+          }
+
+          if (placeholderIcon) {
+            placeholderIcon.innerHTML = isImg
+              ? `<img src="${icon}" style="width:48px;height:48px;opacity:0.6;">`
+              : `<span style="font-size:3rem;opacity:0.6;">${icon}</span>`;
+          }
+
+          // Actualizar aura del botón de agregar
+          const btnAdd = document.getElementById('btn-add-task');
+          if (btnAdd) {
+            btnAdd.style.boxShadow = `0 4px 14px var(--tomato-glow)`;
+          }
+
+          // v1.4: Actualizar favicon del navegador
+          const favicon = document.getElementById('dynamic-favicon');
+          if (favicon) {
+            if (isImg) {
+              favicon.href = icon;
+            } else {
+              favicon.href = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${icon}</text></svg>`;
+            }
+          }
+        }
+
+        function updatePomoTabs() {
+          const icon = getThemeTomate();
+          const isImg = icon.includes('Imagenes/');
+          const tabs = document.querySelectorAll('.pomo-tab');
+          if (tabs.length >= 3) {
+            const iconHtml = isImg ? `<img src="${icon}" style="width:20px;user-select:none;">` : `<span>${icon}</span>`;
+            tabs[0].innerHTML = `${iconHtml}<br/>⇕<br/>Trabajo 25 min`;
+            tabs[1].innerHTML = `☕<br/>⇕<br/>Descanso 5 min`;
+            tabs[2].innerHTML = `🌿<br/>⇕<br/>Largo 15 min`;
+          }
+        }
+
+        // ── Aplicar fondo / textura ─────────────────────────────────────────
+        function applyBg(bgId) {
+          document.body.className = document.body.className.replace(/bg-\S+/g, '').trim();
+          if (bgId && bgId !== 'none') {
+            const item = BG_ITEMS.find(i => i.id === bgId);
+            if (item?.bgClass) document.body.classList.add(item.bgClass);
+          }
+          activeBg = bgId;
+          localStorage.setItem('adt_bg', bgId);
+          refreshShopBgButtons();
+        }
+
+        // ── Actualizar botones activos en pestaña Temas ─────────────────────
+        function refreshShopThemeButtons() {
+          document.querySelectorAll('.btn-select[data-theme-id]').forEach(btn => {
+            const tid = btn.dataset.themeId;
+            btn.textContent = tid === activeTheme ? '✓ Activo' : 'Seleccionar';
+            btn.classList.toggle('active-theme', tid === activeTheme);
+          });
+          const defBtn = document.getElementById('shop-default-btn');
+          const defLbl = document.getElementById('shop-default-label');
+          if (defBtn) defBtn.classList.toggle('is-active', activeTheme === 'default');
+          if (defLbl) defLbl.textContent = activeTheme === 'default' ? '✓ Activo' : '';
+        }
+
+        // ── Actualizar botones activos en pestaña Fondos ────────────────────
+        function refreshShopBgButtons() {
+          document.querySelectorAll('.btn-select[data-bg-id]').forEach(btn => {
+            const bid = btn.dataset.bgId;
+            btn.textContent = bid === activeBg ? '✓ Activo' : 'Seleccionar';
+            btn.classList.toggle('active-theme', bid === activeBg);
+          });
+          const defBtn = document.getElementById('shop-bg-default-btn');
+          const defLbl = document.getElementById('shop-bg-default-label');
+          if (defBtn) defBtn.classList.toggle('is-active', activeBg === 'none');
+          if (defLbl) defLbl.textContent = activeBg === 'none' ? '✓ Activo' : '';
+        }
+
+        // ── Cambiar pestaña de la Huerta ────────────────────────────────────
+        function switchShopTab(tab, el) {
+          document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.shop-tab-content').forEach(t => t.classList.remove('active'));
+          el.classList.add('active');
+          document.getElementById('shopTab-' + tab).classList.add('active');
+        }
+
+
+        // ════════════════════════════════════════════════════════════════════
+        // v1.3: HUERTA — Modal con pestañas Temas / Fondos
+        // ════════════════════════════════════════════════════════════════════
+        async function openHuerta() {
+          document.getElementById('huertaModal').style.display = 'flex';
+          document.getElementById('shop-tomates-count').textContent = tomates;
+
+          // Items poseídos
+          let owned = [];
+          if (profileId) {
+            const { data } = await db.from('user_profiles').select('owned_items').eq('id', profileId).single();
+            owned = data?.owned_items ?? [];
+          } else {
+            try { owned = JSON.parse(localStorage.getItem('adt_owned') ?? '[]'); } catch { owned = []; }
+          }
+
+          // ── Render Temas ────────────────────────────────────────────────
+          document.getElementById('shopGridTemas').innerHTML = SHOP_ITEMS.map(item => {
+            const isOwned = owned.includes(item.id);
+            const isActive = activeTheme === item.id;
+            const buyBtn = isOwned ? '' : `<button class="btn-buy" onclick="buyItem('${item.id}',${item.price},'theme')">Comprar — 🍅${item.price}</button>`;
+            const selBtn = isOwned ? `<button class="btn-select ${isActive ? 'active-theme' : ''}" data-theme-id="${item.id}" onclick="applyTheme('${item.id}')">${isActive ? '✓ Activo' : 'Seleccionar'}</button>` : '';
+            return `<div class="shop-item ${isOwned ? 'owned' : ''}" id="shop-${item.id}">
+          <div class="s-icon"><img src="${item.icon}" style="width:40px;height:40px;object-fit:contain;"></div><div class="s-name">${item.name}</div>
+          <div class="s-desc">${item.desc}</div><div class="s-price">🍅 ${item.price} tomates</div>
+          ${buyBtn}${selBtn}</div>`;
+          }).join('');
+
+          // ── Render Fondos ───────────────────────────────────────────────
+          document.getElementById('shopGridFondos').innerHTML = BG_ITEMS.map(item => {
+            const isOwned = owned.includes(item.id);
+            const isActive = activeBg === item.id;
+            const buyBtn = isOwned ? '' : `<button class="btn-buy" onclick="buyItem('${item.id}',${item.price},'bg')">Comprar — 🍅${item.price}</button>`;
+            const selBtn = isOwned ? `<button class="btn-select ${isActive ? 'active-theme' : ''}" data-bg-id="${item.id}" onclick="applyBg('${item.id}')">${isActive ? '✓ Activo' : 'Seleccionar'}</button>` : '';
+            return `<div class="shop-item ${isOwned ? 'owned' : ''}" id="shop-${item.id}">
+          <div class="s-icon" style="font-size:1.4rem;font-family:var(--font-mono)">${item.icon}</div>
+          <div class="s-name">${item.name}</div><div class="s-desc">${item.desc}</div>
+          <div class="s-price">🍅 ${item.price} tomates</div>${buyBtn}${selBtn}</div>`;
+          }).join('');
+
+          refreshShopThemeButtons();
+          refreshShopBgButtons();
+        }
+
+        async function buyItem(itemId, price, type = 'theme') {
+          if (tomates < price) { toast('🍅 No tienes suficientes tomates', 'error'); return; }
+          const catalog = type === 'bg' ? BG_ITEMS : SHOP_ITEMS;
+          const item = catalog.find(i => i.id === itemId);
+          if (!item) return;
+
+          tomates -= price;
+          renderCounters();
+          document.getElementById('shop-tomates-count').textContent = tomates;
+
+          // Persistir poseídos
+          let owned = [];
+          if (profileId) {
+            const { data } = await db.from('user_profiles').select('owned_items').eq('id', profileId).single();
+            owned = data?.owned_items ?? [];
+            if (!owned.includes(itemId)) owned.push(itemId);
+            await db.from('user_profiles').update({ tomates, owned_items: owned }).eq('id', profileId);
+          } else {
+            try { owned = JSON.parse(localStorage.getItem('adt_owned') ?? '[]'); } catch { owned = []; }
+            if (!owned.includes(itemId)) owned.push(itemId);
+            localStorage.setItem('adt_owned', JSON.stringify(owned));
+            localStorage.setItem('adt_tomates', tomates);
+          }
+
+          toast(`✅ ¡${item.name} desbloqueado! 🎉`);
+
+          // Actualizar card en el grid
+          const card = document.querySelector(`#shop-${itemId}`);
+          if (card) {
+            card.classList.add('owned');
+            const oldBuy = card.querySelector('.btn-buy');
+            if (oldBuy) oldBuy.remove();
+            const sel = document.createElement('button');
+            sel.className = 'btn-select';
+            sel.textContent = 'Seleccionar';
+            if (type === 'bg') {
+              sel.dataset.bgId = itemId;
+              sel.onclick = () => applyBg(itemId);
+            } else {
+              sel.dataset.themeId = itemId;
+              sel.onclick = () => applyTheme(itemId);
+            }
+            card.appendChild(sel);
+          }
+        }
+
+
+        // ════════════════════════════════════════════════════════════════════
+        // v1.3: CRONÓMETRO POMODORO
+        // ════════════════════════════════════════════════════════════════════
+        const POMO_MODES = {
+          work: { label: 'TRABAJO', secs: 25 * 60, color: 'var(--pomo-work)', icon: '🍅' },
+          short: { label: 'DESCANSO CORTO', secs: 5 * 60, color: 'var(--pomo-short)', icon: '☕' },
+          long: { label: 'DESCANSO LARGO', secs: 15 * 60, color: 'var(--pomo-long)', icon: '🌿' },
+        };
+        const POMO_SEQUENCE = ['work', 'short', 'work', 'short', 'work', 'short', 'work', 'long'];
+        const POMO_CIRCUMFERENCE = 2 * Math.PI * 58;
+
+        let _pomoSessionIdx = 0;
+        let pomoMode = 'work';
+        let pomoTotal = POMO_MODES.work.secs;
+        let pomoRemaining = POMO_MODES.work.secs;
+        let pomoRunning = false;
+        let pomoInterval = null;
+        let pomoDone = 0;
+        let pomoLinkedId = null;
+        let pomoLinkedProgress = 0;
+        let pomoProgressStart = 0;
+
+        function getThemeTomate() {
+          const themeIndex = SHOP_ITEMS.findIndex(i => i.themeClass && document.body.classList.contains(i.themeClass));
+          return themeIndex >= 0 ? SHOP_ITEMS[themeIndex].icon : '🍅';
+        }
+
+        function renderMoments() {
+          const container = document.getElementById('pomoMoments');
+          if (!container) return;
+          const icon = getThemeTomate();
+          const isImg = icon.includes('Imagenes/');
+
+          container.innerHTML = POMO_SEQUENCE.map((mode, i) => {
+            const config = POMO_MODES[mode];
+            const iconHtml = mode === 'work'
+              ? (isImg ? `<img src="${icon}" alt="tomate">` : `<span>${icon}</span>`)
+              : `<span>${config.icon}</span>`;
+            return `
+              <div class="moment-item ${i === _pomoSessionIdx ? 'active' : ''}" onclick="setPomoMode(${i})">
+                <div class="moment-dot"></div>
+                <div class="moment-rect">${iconHtml}</div>
+              </div>`;
+          }).join('');
+        }
+
+        function setPomoMode(modeIdx) {
+          if (pomoRunning && !confirm('¿Detener el cronómetro actual?')) return;
+          stopPomo();
+
+          if (typeof modeIdx === 'string') {
+            modeIdx = POMO_SEQUENCE.indexOf(modeIdx);
+            if (modeIdx === -1) modeIdx = 0;
+          }
+
+          _pomoSessionIdx = modeIdx % 8;
+          pomoMode = POMO_SEQUENCE[_pomoSessionIdx];
+          pomoTotal = POMO_MODES[pomoMode].secs;
+          pomoRemaining = pomoTotal;
+
+          const ringFill = document.getElementById('pomoRingFill');
+          if (ringFill) ringFill.style.stroke = POMO_MODES[pomoMode].color;
+          document.getElementById('pomoModeLabel').textContent = POMO_MODES[pomoMode].label;
+
+          const panel = document.querySelector('.pomo-panel');
+          if (panel) {
+            panel.style.setProperty('--pomo-current-color', POMO_MODES[pomoMode].color);
+          }
+
+          const tabs = document.querySelectorAll('.pomo-tab');
+          if (tabs.length >= 3) {
+            tabs.forEach(t => t.classList.remove('active'));
+            if (pomoMode === 'work') tabs[0].classList.add('active');
+            else if (pomoMode === 'short') tabs[1].classList.add('active');
+            else if (pomoMode === 'long') tabs[2].classList.add('active');
+          }
+
+          renderMoments();
+          renderPomoTime();
+          updatePomoRing();
+
+          const msg = pomoMode === 'work' ? 'Momento de concentrarse 🧠' : '¡A descansar! 🔋';
+          updatePomoMsg(msg);
+        }
+
+        function updatePomoMsg(msg, isAlert = false) {
+          const box = document.getElementById('pomoMsgBox');
+          if (box) {
+            box.textContent = msg;
+            box.classList.toggle('alert', isAlert);
+          }
+        }
+
+        function togglePomo() {
+          if (pomoRunning) stopPomo();
+          else startPomo();
+        }
+
+        function startPomo() {
+          pomoRunning = true;
+          document.getElementById('pomoStartBtn').textContent = '⏸ Pausar';
+          pomoInterval = setInterval(tickPomo, 1000);
+        }
+
+        function stopPomo() {
+          pomoRunning = false;
+          clearInterval(pomoInterval);
+          document.getElementById('pomoStartBtn').textContent = '▶ Iniciar';
+        }
+
+        function resetPomo() {
+          stopPomo();
+          pomoRemaining = pomoTotal;
+          renderPomoTime();
+          updatePomoRing();
+        }
+
+        function skipPomo() {
+          if (!pomoRunning || confirm('¿Saltar este momento actual?')) {
+            onPomoComplete();
+          }
+        }
+
+        function tickPomo() {
+          if (pomoRemaining <= 0) { onPomoComplete(); return; }
+          pomoRemaining--;
+          renderPomoTime();
+          updatePomoRing();
+
+          if (pomoMode === 'work' && pomoLinkedId) {
+            const elapsed = pomoTotal - pomoRemaining;
+            const fraction = elapsed / pomoTotal;
+            const space = 99 - pomoProgressStart;
+            const newPct = Math.min(99, Math.floor(pomoProgressStart + fraction * space));
+            if (newPct !== pomoLinkedProgress) {
+              pomoLinkedProgress = newPct;
+              updatePomoTaskProgress(newPct);
+            }
+          }
+        }
+
+        function renderPomoTime() {
+          const m = String(Math.floor(pomoRemaining / 60)).padStart(2, '0');
+          const s = String(pomoRemaining % 60).padStart(2, '0');
+          document.getElementById('pomoTimeDisplay').textContent = `${m}:${s}`;
+        }
+
+        function updatePomoRing() {
+          const fill = document.getElementById('pomoRingFill');
+          if (!fill) return;
+          const ratio = pomoRemaining / pomoTotal;
+          fill.style.strokeDashoffset = POMO_CIRCUMFERENCE * (1 - ratio);
+        }
+
+        function onPomoComplete() {
+          stopPomo();
+          pomoRemaining = 0;
+          renderPomoTime();
+          updatePomoRing();
+
+          if (Notification.permission === 'granted') {
+            new Notification('AD-lante 🍅', { body: buildPomoNotifMsg() });
+          }
+
+          if (pomoMode === 'work') {
+            pomoDone++;
+            document.getElementById('pomoDoneCount').textContent = pomoDone;
+            earnTomates(25); // Gran recompensa extra por completar el bloque (1 por cada minuto invertido)
+          }
+
+          // Pasar automáticamente al siguiente momento de la secuencia
+          const nextIdx = (_pomoSessionIdx + 1) % 8;
+          const nextMode = POMO_SEQUENCE[nextIdx];
+          const alertMsg = nextMode === 'work'
+            ? '¡Descanso terminado! Es hora de volver al trabajo. 🚀'
+            : (nextIdx === 7 ? '¡Gran trabajo! Te has ganado un descanso largo. 🌿' : '¡Buen trabajo! Tómate un respiro corto. ☕');
+
+          updatePomoMsg(alertMsg, true);
+
+          // Actualizar estado para el siguiente
+          _pomoSessionIdx = nextIdx;
+          pomoMode = nextMode;
+          pomoTotal = POMO_MODES[pomoMode].secs;
+          pomoRemaining = pomoTotal;
+
+          renderMoments();
+          renderPomoTime();
+          updatePomoRing();
+          document.getElementById('pomoModeLabel').textContent = POMO_MODES[pomoMode].label;
+          const ringFill = document.getElementById('pomoRingFill');
+          if (ringFill) ringFill.style.stroke = POMO_MODES[pomoMode].color;
+        }
+
+        function skipPomo() {
+          if (!pomoRunning || confirm('¿Saltar este momento actual?')) {
+            onPomoComplete();
+          }
+        }
+
+        function buildPomoNotifMsg() {
+          if (pomoMode === 'work') {
+            return pomoDone % 4 === 0
+              ? '¡Tiempo! Mereces un descanso largo 🌿'
+              : '¡Pomodoro completado! ☕ Descansa 5 min';
+          }
+          return '¡Descanso terminado! Vuelve al trabajo 🍅';
+        }
+
+        function showPomoAlert(msg, nextMode) {
+          // Reutilizar toast + botón de pasar al siguiente
+          const el = document.getElementById('toast');
+          el.innerHTML = `${escHtml(msg)} <button onclick="setPomoMode('${nextMode}',null);startPomo();this.closest('#toast').className='';" style="margin-left:0.6rem;background:var(--tomato);border:none;color:#fff;border-radius:6px;padding:0.2rem 0.6rem;cursor:pointer;font-family:var(--font-mono);font-size:0.75rem;">Siguiente ▶</button>`;
+          el.className = 'show success';
+          setTimeout(() => { el.innerHTML = ''; el.className = ''; }, 8000);
+        }
+
+        // ── Tarea vinculada al pomodoro ──────────────────────────────────────
+        function onPomoTaskChange() {
+          const sel = document.getElementById('pomoTaskSelect');
+          pomoLinkedId = sel.value || null;
+          const row = document.getElementById('pomoProgressRow');
+          row.style.display = pomoLinkedId ? 'flex' : 'none';
+
+          if (pomoLinkedId) {
+            db.from('tasks').select('progress, estimated_time').eq('id', pomoLinkedId).single()
+              .then(({ data }) => {
+                if (!data) return;
+                const real = Math.min(data.progress ?? 0, 99);
+                pomoLinkedProgress = real;
+                pomoProgressStart = real;
+                pomoTaskDuration = data.estimated_time ? data.estimated_time * 60 : POMO_MODES.work.secs;
+                updatePomoTaskProgress(real);
+              });
+          }
+        }
+
+        function updatePomoTaskProgress(pct) {
+          document.getElementById('pomoProgressPct').textContent = `${pct}%`;
+          document.getElementById('pomoProgressFill').style.width = `${pct}%`;
+          if (pomoLinkedId) {
+            const tr = document.querySelector(`#task-${pomoLinkedId} .progress-range`);
+            const tl = document.getElementById(`progress-label-${pomoLinkedId}`);
+            if (tr) { tr.value = pct; tr.style.setProperty('--p', `${pct}%`); }
+            if (tl) tl.textContent = `${pct}%`;
+            if (pct % 5 === 0) db.from('tasks').update({ progress: pct, show_progress: true }).eq('id', pomoLinkedId);
+          }
+        }
+
+        function refreshPomoTaskSelect(tasks) {
+          const sel = document.getElementById('pomoTaskSelect');
+          const cur = pomoLinkedId || sel.value;
+          if (!tasks || !tasks.length) {
+            sel.innerHTML = '<option value="">— Genera un plan primero —</option>';
+            return;
+          }
+          sel.innerHTML = '<option value="">— Selecciona tarea del plan —</option>' +
+            tasks.map(t => `<option value="${t.id}" ${t.id === cur ? 'selected' : ''}>${escHtml(t.title)}</option>`).join('');
+          if (cur && tasks.find(t => t.id === cur)) pomoLinkedId = cur;
+        }
+        function maybeRefreshPomoSelect() {
+          if (_planSelectedForPomo.length > 0) refreshPomoTaskSelect(_planSelectedForPomo);
+        }
+
+        // ── Pedir permiso de notificaciones y guardar estado ──────────────────
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') toast('🔔 ¡Notificaciones activadas!');
+          });
+        }
+
+
+        // ════════════════════════════════════════════════════════════════════
+        // v1.4: TAREAS RECURRENTES
+        // SUPABASE: ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS recur_days int[] DEFAULT '{}';
+        // ════════════════════════════════════════════════════════════════════
+        let _recurTaskId = null;
+        let _recurSelected = new Set();
+
+        async function openRecurModalById(taskId) {
+          const { data } = await db.from('tasks').select('recur_days').eq('id', taskId).single();
+          openRecurModal(taskId, data?.recur_days || []);
+        }
+
+        function openRecurModal(taskId, days) {
+          closeAllMenus();
+          _recurTaskId = taskId;
+          _recurSelected = new Set(Array.isArray(days) ? days.map(Number) : []);
+          document.getElementById('recur-task-id').value = taskId;
+          document.querySelectorAll('.recur-day').forEach(el => {
+            const d = parseInt(el.dataset.day);
+            el.classList.toggle('selected', _recurSelected.has(d));
+            el.onclick = () => {
+              el.classList.toggle('selected');
+              if (el.classList.contains('selected')) _recurSelected.add(d);
+              else _recurSelected.delete(d);
+            };
+          });
+          document.getElementById('recurModal').style.display = 'flex';
+        }
+
+        async function saveRecurrence() {
+          if (!_recurTaskId) return;
+          const days = [..._recurSelected];
+          const { error } = await db.from('tasks').update({ recur_days: days }).eq('id', _recurTaskId);
+          if (error) { toast('Error al guardar recurrencia', 'error'); return; }
+          toast(days.length ? `🔁 Recurrencia guardada: ${days.length} días` : 'Sin días seleccionados');
+          closeModal('recurModal');
+          await loadTasks();
+        }
+
+        async function removeRecurrence() {
+          if (!_recurTaskId) return;
+          await db.from('tasks').update({ recur_days: [] }).eq('id', _recurTaskId);
+          toast('Recurrencia eliminada');
+          closeModal('recurModal');
+          await loadTasks();
+        }
+
+        async function checkRecurringTasks() {
+          const todayDow = new Date().getDay();
+          const todayISO = new Date().toISOString().slice(0, 10);
+          const { data: templates } = await db.from('tasks').select('*')
+            .contains('recur_days', [todayDow]).eq('completed', true).lt('completed_at', todayISO);
+          if (!templates || !templates.length) return;
+          const titles = templates.map(t => t.title);
+          const { data: existing } = await db.from('tasks').select('title').eq('completed', false).in('title', titles);
+          const existingTitles = new Set((existing || []).map(t => t.title));
+          const toCreate = templates.filter(t => !existingTitles.has(t.title)).map(t => ({
+            title: t.title, description: t.description, estimated_time: t.estimated_time,
+            priority: t.priority, category: t.category, pomodoros_estimated: t.pomodoros_estimated,
+            recur_days: t.recur_days, progress: 0, show_progress: false, completed: false
+          }));
+          if (toCreate.length > 0) {
+            await db.from('tasks').insert(toCreate);
+            toast(`🔁 ${toCreate.length} tarea(s) recurrente(s) restauradas`);
+            await loadTasks();
+          }
+        }
+
+        // ── Helpers modales genéricos ────────────────────────────────────────
+        function closeModal(id) {
+          document.getElementById(id).style.display = 'none';
+        }
+        function closeModalOverlay(event, id) {
+          if (event.target === document.getElementById(id)) closeModal(id);
+        }
+
+        // ── Init ─────────────────────────────────────────
+        (async function init() {
+          updateDayProgress();
+          setInterval(updateDayProgress, 30_000);
+          await loadProfile();
+          await loadTasks();
+          await checkRecurringTasks();
+        })();
+
+        document.addEventListener('click', (event) => {
+          if (!event.target.closest('.task-menu')) closeAllMenus();
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            ['editModal', 'historialModal', 'huertaModal', 'planSelectorModal', 'recurModal'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el && el.style.display !== 'none') closeModal(id);
+            });
+          }
+        });
+      </script>
+</body>
+
+</html>
