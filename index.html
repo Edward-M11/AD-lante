@@ -4152,9 +4152,12 @@ Responde SOLO con el JSON array. Ejemplo:
     async function generatePlan() {
       const { data, error } = await db
         .from('tasks')
-        .select('id, title, estimated_time, deadline, priority, category, pomodoros_estimated')
+        .select('id, title, estimated_time, deadline, priority, category, pomodoros_estimated, progress')
         .eq('completed', false)
-        .order('priority')
+        .eq('user_id', _uid)
+        .order('sort_order', { ascending: true })
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(40);
 
       if (error || !data || !data.length) {
